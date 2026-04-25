@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Villa 4 — Punch List Tracker R04</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Jost',system-ui,sans-serif;background:#f7f4ef;color:#1a1612;min-height:100vh}
+  ::-webkit-scrollbar{width:5px;height:5px}
+  ::-webkit-scrollbar-track{background:#ece8e0}
+  ::-webkit-scrollbar-thumb{background:#b8893a66;border-radius:3px}
+  .tr:hover{background:rgba(184,137,58,0.06)!important}
+  .stab{cursor:pointer;transition:all 0.18s;font-family:'Jost',sans-serif}
+  .stab:hover{opacity:0.75}
+  .tooltip{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;gap:6px;align-items:center;z-index:10}
+  .tr:hover .tooltip{display:flex}
+
+  /* ── UPLOAD BUTTON ── */
+  .upload-btn{
+    cursor:pointer;font-family:'Jost',sans-serif;font-size:9.5px;letter-spacing:0.13em;
+    font-weight:500;padding:7px 15px;border:1px solid #b8893a;border-radius:20px;
+    background:transparent;color:#b8893a;transition:all 0.2s;display:inline-flex;
+    align-items:center;gap:7px;
+  }
+  .upload-btn:hover{background:#b8893a14;box-shadow:0 0 0 3px #b8893a18}
+  .upload-btn svg{flex-shrink:0}
+
+  /* ── DIFF MODAL ── */
+  #diffBackdrop{
+    display:none;position:fixed;inset:0;background:rgba(20,16,12,0.58);
+    z-index:1000;align-items:center;justify-content:center;
+    backdrop-filter:blur(3px);
+  }
+  #diffBackdrop.active{display:flex}
+  #diffModal{
+    background:#fff;border-radius:14px;border-top:4px solid #b8893a;
+    width:min(860px,95vw);max-height:90vh;display:flex;flex-direction:column;
+    box-shadow:0 24px 70px rgba(0,0,0,0.28);overflow:hidden;
+    animation:modalIn 0.22s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes modalIn{from{opacity:0;transform:scale(0.94) translateY(10px)}to{opacity:1;transform:none}}
+  .diff-header{padding:20px 26px 16px;border-bottom:1px solid #ede8e0;flex-shrink:0}
+  .diff-body{overflow-y:auto;flex:1}
+  .diff-footer{
+    padding:14px 26px;border-top:1px solid #ede8e0;
+    display:flex;justify-content:flex-end;gap:10px;
+    flex-shrink:0;background:#faf8f4;
+  }
+  .diff-sec-hdr{
+    padding:8px 22px;font-size:9px;letter-spacing:0.18em;font-weight:600;
+    border-bottom:1px solid #ede8e0;border-top:1px solid #ede8e0;
+    position:sticky;top:0;z-index:2;
+  }
+  .diff-row{
+    padding:11px 22px;border-bottom:1px solid #f3efe8;
+    display:flex;gap:13px;align-items:flex-start;
+  }
+  .diff-row:last-child{border-bottom:none}
+  .diff-badge{
+    width:64px;flex-shrink:0;font-size:8px;letter-spacing:0.13em;
+    font-weight:700;padding:3px 0;border-radius:10px;text-align:center;margin-top:2px;
+  }
+  .field-change{
+    display:flex;gap:7px;align-items:flex-start;font-size:9.5px;
+    margin-top:4px;flex-wrap:wrap;
+  }
+  .fchange-label{font-size:8.5px;color:#a0907a;width:88px;flex-shrink:0;padding-top:1px;letter-spacing:0.06em}
+  .from-val{color:#b0a090;text-decoration:line-through;word-break:break-word}
+  .to-val{color:#1a1612;font-weight:500;word-break:break-word}
+  .chg-arrow{color:#b8893a;font-size:12px;flex-shrink:0;margin-top:-1px}
+  .modal-close-btn{
+    background:none;border:none;cursor:pointer;color:#9a8a70;
+    font-size:17px;padding:4px 8px;border-radius:6px;line-height:1;
+    transition:background 0.15s;
+  }
+  .modal-close-btn:hover{background:#f0ece4}
+  .modal-action-btn{
+    font-family:'Jost',sans-serif;font-size:9.5px;letter-spacing:0.13em;
+    font-weight:500;padding:9px 22px;border-radius:20px;cursor:pointer;
+    transition:all 0.18s;
+  }
+  .modal-action-btn.cancel{
+    border:1px solid #d4ccc0;background:transparent;color:#6a5f4a;
+  }
+  .modal-action-btn.cancel:hover{background:#f0ece4}
+  .modal-action-btn.apply{
+    border:1px solid #b8893a;background:#b8893a;color:#fff;
+  }
+  .modal-action-btn.apply:hover{background:#a07830}
+  .modal-action-btn.export{
+    border:1px solid #4a7c6a;background:transparent;color:#4a7c6a;
+  }
+  .modal-action-btn.export:hover{background:#4a7c6a12}
+  .modal-action-btn:disabled{opacity:0.38;cursor:not-allowed;pointer-events:none}
+
+  /* ── TOAST ── */
+  .vt-toast{
+    position:fixed;bottom:24px;right:24px;background:#1a1612;color:#fff;
+    padding:13px 22px;border-radius:10px;border-left:3px solid #b8893a;
+    font-family:'Jost',sans-serif;font-size:11px;letter-spacing:0.07em;
+    z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,0.28);
+    animation:toastIn 0.3s ease;
+  }
+  @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<!-- ─── STATIC: hidden file input ─────────────────────────── -->
+<input type="file" id="uploadInput" accept=".xlsx,.xls" style="display:none"
+  onchange="handleUpload(this)"/>
+
+<!-- ─── DIFF MODAL OVERLAY ────────────────────────────────── -->
+<div id="diffBackdrop">
+  <div id="diffModal">
+
+    <div class="diff-header">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;font-weight:600;color:#1a1612">
+            Update Review
+          </div>
+          <div style="font-size:9.5px;color:#9a8a70;letter-spacing:0.1em;margin-top:3px">
+            Item-by-item comparison with uploaded Excel file
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="closeDiffModal()">✕</button>
+      </div>
+      <div id="diffSummary" style="display:flex;gap:9px;margin-top:14px;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="diff-body" id="diffBody"></div>
+
+    <div class="diff-footer">
+      <button class="modal-action-btn cancel" onclick="closeDiffModal()">CANCEL</button>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+        <button class="modal-action-btn export" id="exportBtn" onclick="exportDiffReport()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+            style="display:inline;vertical-align:middle;margin-right:6px">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>EXPORT REPORT
+        </button>
+        <button class="modal-action-btn apply" id="applyBtn" onclick="applyDiff()">APPLY CHANGES</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── APP ROOT ──────────────────────────────────────────── -->
+<div id="root"></div>
+
+<script>
+// ─── DATA ──────────────────────────────────────────────────────────────────
+const RAW = [
+  {id:1,  ref:30,  section:"Backyard",       area:"External Walkway",       desc:"Concrete works for external walkway",                         ar:"أعمال تنفيذ صبة خرسانية لممر المشاة الخارجي",              status:"Done",     responsible:"Khaled",           date:"2026-04-06"},
+  {id:2,  ref:31,  section:"Backyard",       area:"Rear Façade",            desc:"Supply & installation of tiles with proper slope",            ar:"توريد وتركيب بلاط بميل مناسب باتجاه نقاط التصريف",        status:"Done",     responsible:"Khaled",           date:"2026-04-08"},
+  {id:3,  ref:32,  section:"Backyard",       area:"Rear Façade",            desc:"Supply & installation of terrazzo tiles for walkway",         ar:"توريد وتركيب بلاط تيرازو لممر المشاة الخارجي",            status:"Done",     responsible:"Khaled",           date:"2026-04-08"},
+  {id:4,  ref:33,  section:"Backyard",       area:"Planting Areas",         desc:"Upstand works for rear façade planting areas",                ar:"تنفيذ أب ستاند لمنطقة أحواض الزراعة عند الواجهة الخلفية", status:"Done",     responsible:"Khaled",           date:"2026-04-09"},
+  {id:5,  ref:35,  section:"Backyard",       area:"Planting Area",          desc:"Waterproofing works for backyard planting area",              ar:"تنفيذ العزل المائي لأرضية الباك يارد للزراعة",             status:"Done",     responsible:"Khaled",           date:"2026-04-15"},
+  {id:6,  ref:36,  section:"Backyard",       area:"Backyard",               desc:"Drain pipes installation above waterproofing layer",          ar:"تركيب مواسير الصرف فوق طبقة العزل",                       status:"Pending",   responsible:"Eng. Ibrahim",     date:"2026-04-23"},
+  {id:7,  ref:42,  section:"Backyard",       area:"Waterfall",              desc:"Waterfall finishing works",                                   ar:"تشطيب الشلال",                                             status:"Pending",   responsible:"A Hadi",           date:"2026-04-25"},
+  {id:8,  ref:37,  section:"Backyard",       area:"Backyard",               desc:"Landscaping works – backyard",                                ar:"تنفيذ وتنسيق الموقع الزراعي عند الباك يارد",              status:"Pending",   responsible:"Eng. Maaly",       date:"2026-04-25"},
+  {id:9,  ref:34,  section:"Backyard",       area:"Tank & Pump Room",       desc:"Supply & installation of tank and pump room covers",          ar:"توريد وتركيب أغطية الخزانات وغرف المضخات",                status:"Pending",   responsible:"A Hadi",           date:"2026-04-26"},
+  {id:10, ref:38,  section:"Backyard",       area:"Walkway",                desc:"Supply & installation of wooden decking for walkway",         ar:"توريد وتركيب أرضيات خشبية لممر المشاة",                   status:"Pending",   responsible:"A Hadi",           date:"2026-04-30"},
+  {id:11, ref:39,  section:"Backyard",       area:"Pergola",                desc:"Supply & installation of wooden decking under pergola",       ar:"توريد وتركيب أرضيات خشبية أسفل المظلة",                   status:"Pending",   responsible:"A Hadi",           date:"2026-04-30"},
+  {id:12, ref:40,  section:"Backyard",       area:"Walkway",                desc:"Supply & installation of outdoor walkway lighting",           ar:"توريد وتركيب إنارة لممر المشاة الخارجي",                  status:"Pending",   responsible:"Eng. Ibrahim",     date:"2026-04-30"},
+  {id:13, ref:41,  section:"Backyard",       area:"BBQ Area",               desc:"BBQ area construction works",                                 ar:"تنفيذ ال BBQ",                                             status:"Pending",   responsible:"A Hadi",           date:"2026-04-30"},
+  {id:14, ref:60,  section:"External Front", area:"Front Garden",           desc:"Irrigation & drainage works for front planting areas",        ar:"تنفيذ شبكة الري وتصريف المياه للأحواض الأمامية",          status:"Done",     responsible:"Eng. Ibrahim",     date:"2026-04-07"},
+  {id:15, ref:61,  section:"External Front", area:"Front Garden",           desc:"Landscaping works for front planting areas",                  ar:"تنفيذ وتنسيق الموقع الزراعي في الأحواض الأمامية",         status:"Done",     responsible:"Eng. Maaly",       date:"2026-04-08"},
+  {id:16, ref:62,  section:"External Front", area:"Service Gate",           desc:"Service gate painting works",                                 ar:"أعمال دهان بوابة الخدمة",                                  status:"Done",     responsible:"A Hadi",           date:"2026-04-13"},
+  {id:17, ref:64,  section:"External Front", area:"Main Gate",              desc:"Main gate painting works",                                    ar:"أعمال دهان البوابة الرئيسية",                              status:"Done",     responsible:"A Hadi",           date:"2026-04-21"},
+  {id:18, ref:68,  section:"External Front", area:"Entrance Door",          desc:"Entrance door handle replacement",                            ar:"تغيير مسكة الباب",                                         status:"Pending",   responsible:"A Hadi",           date:"2026-04-26"},
+  {id:19, ref:67,  section:"External Front", area:"Façade",                 desc:"Deep cleaning of basalt surfaces",                            ar:"تنظيف البازلت تنظيف عميق",                                 status:"Pending",   responsible:"A Hadi",           date:"2026-04-28"},
+  {id:20, ref:63,  section:"External Front", area:"External Doors",         desc:"Supply & installation of external door handles",              ar:"توريد وتركيب مقابض الأبواب الخارجية",                      status:"Pending",   responsible:"A Hadi",           date:"2026-04-29"},
+  {id:21, ref:65,  section:"External Front", area:"Car Parking",            desc:"Car parking pergola works",                                   ar:"أعمال تنفيذ مظلة مواقف السيارات",                          status:"Pending",   responsible:"Adel",             date:"2026-05-20"},
+  {id:22, ref:66,  section:"External Front", area:"Main Gate",              desc:"Supply & installation of sliding gate",                       ar:"توريد وتركيب بوابة سحاب",                                  status:"Done",     responsible:"Eng. Ibrahim",     date:"2026-05-30"},
+  {id:23, ref:89,  section:"First Floor",    area:"General",                desc:"Master key installation",                                     ar:"الماستر كي",                                               status:"Done",     responsible:"A Hadi",           date:"2026-04-01"},
+  {id:24, ref:80,  section:"First Floor",    area:"Nursery",                desc:"Supply & installation of nursery cabinet",                    ar:"توريد وتركيب خزانة النيرسري",                              status:"Done",     responsible:"A Hadi",           date:"2026-04-14"},
+  {id:25, ref:83,  section:"First Floor",    area:"Nursery",                desc:"Bench installation – nursery",                                ar:"البنش – النيرسري",                                         status:"Pending",   responsible:"A Hadi",           date:"2026-04-21"},
+  {id:26, ref:84,  section:"First Floor",    area:"Nursery",                desc:"Wallpaper installation – nursery",                            ar:"ورق الجدران – النيرسري",                                   status:"Pending",   responsible:"A Hadi",           date:"2026-04-25"},
+  {id:27, ref:86,  section:"First Floor",    area:"Sitting Room",           desc:"Sliding office desk installation",                            ar:"المكتب السلايدينغ",                                        status:"Pending",   responsible:"A Hadi",           date:"2026-04-25"},
+  {id:28, ref:87,  section:"First Floor",    area:"Sitting Room",           desc:"Travertine shelves installation",                             ar:"تركيب أرفف الترافينتاين",                                  status:"Pending",   responsible:"A Hadi",           date:"2026-04-25"},
+  {id:29, ref:88,  section:"First Floor",    area:"Lobby",                  desc:"Floor box installation – lobby",                              ar:"فلور بوكس – اللوبي",                                       status:"Pending",   responsible:"Eng. Abdulfattah", date:"2026-04-25"},
+  {id:30, ref:82,  section:"First Floor",    area:"Hala Room",              desc:"Cushion installation – Hala room",                            ar:"مخدة – غرفة هلا",                                          status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:31, ref:81,  section:"First Floor",    area:"Master",                 desc:"Wall lighting area coloring – master",                        ar:"تلوين مكان الإنارة الجدارية",                              status:"Pending",   responsible:"A Hadi",           date:"2026-05-14"},
+  {id:32, ref:85,  section:"First Floor",    area:"General",                desc:"Supply & installation of insect screens",                     ar:"توريد وتركيب شبك الحشرات",                                 status:"Pending",   responsible:"A Hadi",           date:null},
+  {id:33, ref:160, section:"Ground Floor",   area:"Sheikh's Office",        desc:"Marble wall cladding – Sheikh's office",                      ar:"كسوة رخام للجدران – مكتب الشيخ",                           status:"Done",     responsible:"A Hadi",           date:"2026-04-13"},
+  {id:34, ref:122, section:"Ground Floor",   area:"Guest WC",               desc:"Gypsum works – washbasins area",                              ar:"أعمال جبس (منطقة المغاسل)",                                status:"Done",     responsible:"A Hadi",           date:"2026-04-13"},
+  {id:35, ref:126, section:"Ground Floor",   area:"Guest WC",               desc:"Wall plastering above gypsum",                                ar:"أعمال لياسة الجدار فوق الجبس",                             status:"Done",     responsible:"A Hadi",           date:"2026-04-13"},
+  {id:36, ref:161, section:"Ground Floor",   area:"Sheikh's Office",        desc:"Curtain opening modifications in gypsum",                     ar:"تعديل فتحات الستائر في الجبس – مكتب الشيخ",               status:"Done",     responsible:"A Hadi",           date:"2026-04-14"},
+  {id:37, ref:164, section:"Ground Floor",   area:"Sheikh's Office",        desc:"Opening marble works – Sheikh's office",                      ar:"فتح الرخامة في المكتب",                                    status:"Pending",   responsible:"—",                date:"2026-04-22"},
+  {id:38, ref:141, section:"Ground Floor",   area:"Service Entrance",       desc:"External metal handrail – service entrance",                  ar:"توريد وتركيب درابزين معدني خارجي لمدخل الخدمة",            status:"Pending",   responsible:"A Hadi",           date:"2026-04-23"},
+  {id:39, ref:162, section:"Ground Floor",   area:"Sheikh's Office",        desc:"Paint modification at curtain areas – Sheikh's office",       ar:"تعديل الدهانات أماكن الستائر في الجبس",                    status:"Pending",   responsible:"A Hadi",           date:"2026-04-23"},
+  {id:40, ref:127, section:"Ground Floor",   area:"Guest WC",               desc:"Ceiling painting – washbasins area",                          ar:"دهان السقف (منطقة المغاسل)",                               status:"Pending",   responsible:"A Hadi",           date:"2026-04-24"},
+  {id:41, ref:112, section:"Ground Floor",   area:"Spiral Staircase",       desc:"Lighting cable extension under wooden columns",               ar:"تمديد أسلاك الإنارة أسفل الأعمدة الخشبية",                 status:"Pending",   responsible:"Eng. Abdulfattah", date:"2026-04-25"},
+  {id:42, ref:145, section:"Ground Floor",   area:"Main Entrance",          desc:"Dubai doors repair works",                                    ar:"تصليح أبواب دبي",                                          status:"Pending",   responsible:"A Hadi",           date:"2026-04-26"},
+  {id:43, ref:125, section:"Ground Floor",   area:"Guest WC",               desc:"Washbasin bases installation",                                ar:"تنفيذ قواعد المغاسل",                                      status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:44, ref:142, section:"Ground Floor",   area:"Service Entrance",       desc:"Corridor cabinet installation",                               ar:"تركيب خزانة الممر",                                        status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:45, ref:143, section:"Ground Floor",   area:"Service Entrance",       desc:"Hidden door finishing",                                       ar:"تشطيب الباب المخفي",                                       status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:46, ref:167, section:"Ground Floor",   area:"Sheikh's Office",        desc:"Wallpaper installation – Sheikh's office",                    ar:"توريد وتركيب ورق جدران – مكتب الشيخ",                     status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:47, ref:168, section:"Ground Floor",   area:"Sheikh's Office",        desc:"Floor box relocation – Sheikh's office",                      ar:"ترحيل الفلور بوكس – مكتب الشيخ",                           status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:48, ref:106, section:"Ground Floor",   area:"General",                desc:"Skirting works (sample & full installation)",                 ar:"أعمال تنفيذ النعلات (عينة وتركيب)",                         status:"Pending",   responsible:"A Hadi",           date:"2026-04-28"},
+  {id:49, ref:131, section:"Ground Floor",   area:"Study Room",             desc:"Study room washbasin and vanity installation",                ar:"توريد وتركيب مغسلة وكاونتر حمام غرفة الدراسة",             status:"Pending",   responsible:"A Hadi",           date:"2026-04-30"},
+  {id:50, ref:107, section:"Ground Floor",   area:"General",                desc:"Final coat ceiling painting works",                           ar:"أعمال دهان الأسقف – الطبقة النهائية",                      status:"Pending",   responsible:"A Hadi",           date:"2026-05-05"},
+  {id:51, ref:123, section:"Ground Floor",   area:"Guest WC",               desc:"Marble wall cladding – washbasins area",                      ar:"كسوة رخام للجدران (منطقة المغاسل)",                        status:"Pending",   responsible:"Eng. Zain",        date:"2026-05-05"},
+  {id:52, ref:111, section:"Ground Floor",   area:"Spiral Staircase",       desc:"Timber cladding for spiral staircase enclosure",              ar:"كسوة خارجية للسلم الحلزوني من أعمدة خشبية",                status:"Pending",   responsible:"A Hadi",           date:"2026-05-05"},
+  {id:53, ref:144, section:"Ground Floor",   area:"Main Entrance / Lobby",  desc:"Metal cladding works – main entrance lobby",                  ar:"كسوة معدنية للمدخل الرئيسي منطقة اللوبي",                  status:"Pending",   responsible:"A Hadi",           date:"2026-05-05"},
+  {id:54, ref:163, section:"Ground Floor",   area:"Sheikh's Office",        desc:"Supply & installation of wooden cabinets – Sheikh's office",  ar:"توريد وتركيب مكتبة خشبية – مكتب الشيخ",                   status:"Pending",   responsible:"A Hadi",           date:"2026-05-05"},
+  {id:55, ref:165, section:"Ground Floor",   area:"Sheikh's Office",        desc:"Wooden desk installation & floor box relocation",             ar:"تركيب مكتب خشبي وترحيل الفلور بوكس",                      status:"Pending",   responsible:"A Hadi",           date:"2026-05-05"},
+  {id:56, ref:155, section:"Ground Floor",   area:"Family Entrance",        desc:"Marble wall cladding – family entrance washbasins",           ar:"كسوة رخام للجدران عند المغاسل – مدخل العائلة",             status:"Pending",   responsible:"Eng. Zain",        date:"2026-05-05"},
+  {id:57, ref:124, section:"Ground Floor",   area:"Guest WC",               desc:"Metal cladding for doors (copper frame)",                     ar:"كسوة معدنية للأبواب (إطار نحاسي)",                         status:"Pending",   responsible:"A Hadi",           date:"2026-05-16"},
+  {id:58, ref:156, section:"Ground Floor",   area:"Family Entrance",        desc:"Washbasin counter installation – family entrance",            ar:"تركيب كاونتر المغسلة – مدخل العائلة",                      status:"Pending",   responsible:"A Hadi",           date:"2026-05-15"},
+  {id:59, ref:108, section:"Ground Floor",   area:"General",                desc:"Floor polishing works",                                       ar:"أعمال جلي وتلميع الأرضيات",                                status:"Pending",   responsible:"A Hadi",           date:"2026-05-25"},
+  {id:60, ref:128, section:"Ground Floor",   area:"Guest WC",               desc:"Supply & installation of main bathroom doors",                ar:"توريد وتركيب أبواب الحمامات الرئيسية",                     status:"Pending",   responsible:"Eng. Zain",        date:"2026-06-15"},
+  {id:61, ref:110, section:"Ground Floor",   area:"Spiral Staircase",       desc:"Glass balustrade – spiral staircase",                         ar:"درابزين زجاجي للسلم الحلزوني",                             status:"Canceled",  responsible:"A Hadi",           date:null},
+  {id:62, ref:109, section:"Ground Floor",   area:"Dining Room",            desc:"Buffet unit installation",                                    ar:"البوفيه",                                                   status:"Pending",   responsible:"Eng. Zain",        date:null},
+  {id:63, ref:121, section:"Ground Floor",   area:"Majlis",                 desc:"Fireplace works – Majlis",                                    ar:"الفاير بليس",                                              status:"Pending",   responsible:"A Hadi",           date:null},
+  {id:64, ref:159, section:"Basement",       area:"Dining",                 desc:"Kitchen reinstallation works",                                ar:"إعادة تركيب المطبخ",                                       status:"Pending",   responsible:"A Hadi",           date:"2026-04-26"},
+  {id:65, ref:152, section:"Basement",       area:"Entertainment",          desc:"Fireplace marble modification",                               ar:"تعديل الرخامة عند الفاير بليس",                             status:"Pending",   responsible:"A Hadi",           date:"2026-04-26"},
+  {id:66, ref:160, section:"Basement",       area:"Pool Area",              desc:"Wooden flooring installation – pool area",                    ar:"تركيب أرضيات خشبية لمنطقة المسبح",                         status:"Pending",   responsible:"A Hadi",           date:"2026-04-26"},
+  {id:67, ref:164, section:"Basement",       area:"Pool Area",              desc:"Curtain installation – pool area",                            ar:"تركيب الستائر",                                            status:"Pending",   responsible:"A Hadi",           date:"2026-04-26"},
+  {id:68, ref:152, section:"Basement",       area:"Hair Salon",             desc:"Wallpaper supply & installation – hair salon",                ar:"توريد وتركيب ورق جدران – صالون الشعر",                     status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:69, ref:157, section:"Basement",       area:"Gym",                    desc:"Accessories installation at wallpaper area – gym",            ar:"اكسسوار عند ورق الجدران – الجيم",                          status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:70, ref:163, section:"Basement",       area:"Pool Area",              desc:"Glass door installation – pool area",                         ar:"تركيب باب الزجاج",                                         status:"Pending",   responsible:"A Hadi",           date:"2026-04-27"},
+  {id:71, ref:153, section:"Basement",       area:"Entertainment",          desc:"Wall sanding works – entertainment area",                     ar:"سنفرة الجدار",                                             status:"Pending",   responsible:"A Hadi",           date:"2026-04-28"},
+  {id:72, ref:155, section:"Basement",       area:"Cinema",                 desc:"Counter, glass & refrigerator installation – cinema",         ar:"الكانتور زجاج + دهان + تركيب الثلاجة",                     status:"Pending",   responsible:"A Hadi",           date:"2026-04-28"},
+  {id:73, ref:156, section:"Basement",       area:"Cinema",                 desc:"Cabinet under screen installation – cinema",                  ar:"الخزانة تحت الشاشة",                                       status:"Pending",   responsible:"A Hadi",           date:"2026-05-07"},
+  {id:74, ref:158, section:"Basement",       area:"Shower",                 desc:"Partition, glass shelves & washbasin mirror installation",    ar:"تركيب البارتيشن + أرفف زجاج + مرايا المغاسل",              status:"Pending",   responsible:"A Hadi",           date:"2026-05-07"},
+  {id:75, ref:151, section:"Basement",       area:"Hair Salon",             desc:"Hair salon furnishing works",                                 ar:"فرش صالون الشعر",                                          status:"Pending",   responsible:"Eng. Zain",        date:"2026-05-16"},
+  {id:76, ref:154, section:"Basement",       area:"Sitting Area",           desc:"Bench installation – sitting area",                           ar:"البنش – الجلسة",                                           status:"Pending",   responsible:"A Hadi",           date:"2026-05-16"},
+  {id:77, ref:161, section:"Basement",       area:"Pool Area",              desc:"Lighting installation under staircase",                       ar:"إنارة تحت الدرج",                                          status:"Pending",   responsible:"Eng. Zain",        date:"2026-05-16"},
+  {id:78, ref:162, section:"Basement",       area:"Pool Area",              desc:"Wall lighting installation near elevator",                    ar:"الإنارة الجدارية عند المصعد",                               status:"Pending",   responsible:"Eng. Zain",        date:"2026-05-16"},
+  {id:79, ref:150, section:"Basement",       area:"Hair Salon",             desc:"Supply & installation of washbasins and vanities",            ar:"توريد وتركيب مغاسل وخزائن – صالون الشعر",                  status:"Pending",   responsible:"Eng. Zain",        date:null},
+  {id:80, ref:701, section:"Second Floor",   area:"Game Room",              desc:"Opening modification works – game room",                      ar:"تعديل الفتحات – غرفة الألعاب",                             status:"Pending",   responsible:"A Hadi",           date:"2026-04-21"},
+  {id:81, ref:701, section:"Second Floor",   area:"Game Room",              desc:"AC repair works – game room",                                 ar:"تصليح التكييف – غرفة الألعاب",                             status:"Pending",   responsible:"A Hadi",           date:"2026-04-25"},
+  {id:82, ref:701, section:"Second Floor",   area:"Game Room",              desc:"Washbasin removal works",                                     ar:"إلغاء المغسلة",                                            status:"Pending",   responsible:"A Hadi",           date:"2026-04-25"},
+  {id:83, ref:701, section:"Second Floor",   area:"Laundry Room",           desc:"Laundry room door repair",                                    ar:"تصليح باب غرفة الغسيل",                                    status:"Pending",   responsible:"A Hadi",           date:"2026-04-25"},
+  {id:84, ref:701, section:"Second Floor",   area:"External",               desc:"External door lock installation",                             ar:"قفل الباب الخارجي",                                        status:"Pending",   responsible:"A Hadi",           date:"2026-04-25"},
+  {id:85, ref:800, section:"General",        area:"Master Terrace",         desc:"Master terrace AC repair works",                              ar:"إصلاح وصيانة تكييف تراس الماستر",                          status:"Done",     responsible:"Eng. Ibrahim",     date:"2026-04-05"},
+  {id:86, ref:801, section:"General",        area:"Laundry Room",           desc:"Control panel door fixing works",                             ar:"تثبيت باب لوحة التحكم",                                    status:"Done",     responsible:"Khaled",           date:"2026-04-05"},
+  {id:87, ref:802, section:"General",        area:"Elevator Shaft",         desc:"Plastering works – elevator shaft",                           ar:"أعمال لياسة (بئر المصعد)",                                  status:"Done",     responsible:"Khaled",           date:"2026-04-11"},
+  {id:88, ref:803, section:"General",        area:"Elevator Shaft",         desc:"Painting works – elevator shaft",                             ar:"أعمال دهان (بئر المصعد)",                                   status:"Done",     responsible:"Khaled",           date:"2026-04-13"},
+  {id:89, ref:804, section:"General",        area:"Kitchen",                desc:"Marble cover for kitchen drain",                              ar:"توريد وتركيب غطاء رخام لصفاية المطبخ",                     status:"Done",     responsible:"Khaled",           date:"2026-04-13"},
+  {id:90, ref:805, section:"General",        area:"Pantry",                 desc:"Marble cover for pantry drain",                               ar:"توريد وتركيب غطاء رخام لصفاية البانتري",                    status:"Done",     responsible:"Khaled",           date:"2026-04-13"},
+];
+
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const SC = {
+  "Backyard":       "#2e7d4f",
+  "External Front": "#1a5fa8",
+  "First Floor":    "#6b3fa0",
+  "Ground Floor":   "#b5770d",
+  "Basement":       "#b83232",
+  "Second Floor":   "#0e7490",
+  "General":        "#64748b",
+};
+const STATUS_CFG = {
+  Done:     { color:"#16a34a", light:"#dcfce7" },
+  Pending:  { color:"#d97706", light:"#fef3c7" },
+  Canceled: { color:"#9ca3af", light:"#f3f4f6" },
+};
+const MONTHS = [
+  { label:"APRIL 2026",  start:0,  days:30 },
+  { label:"MAY 2026",    start:30, days:31 },
+  { label:"JUNE 2026",   start:61, days:30 },
+];
+const DAYS  = 91;
+const START = new Date("2026-04-01");
+
+// Dynamic today — always reflects the real current date
+const _TODAY      = new Date(); _TODAY.setHours(0,0,0,0);
+const TODAY_OFF   = Math.min(DAYS-1, Math.max(0, Math.round((_TODAY - START)/86400000)));
+const MNAMES      = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const TODAY_LABEL = `${MNAMES[_TODAY.getMonth()]} ${_TODAY.getDate()}`;
+const TODAY_FULL  = _TODAY.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}).toUpperCase();
+
+const WEEKS    = [0,7,14,21,28,35,42,49,56,63,70,77,84];
+const SECTIONS = ["All","Backyard","External Front","First Floor","Ground Floor","Basement","Second Floor","General"];
+
+function toOff(d){ if(!d) return null; const dt=new Date(d); return isNaN(dt)?null:Math.round((dt-START)/86400000); }
+
+let activeSection     = "All";
+let activeResponsible = "All";
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function render() {
+  const filtered = RAW
+    .filter(t => activeSection==="All"     || t.section===activeSection)
+    .filter(t => activeResponsible==="All" || t.responsible===activeResponsible);
+  const withDate = [...filtered].filter(t=>t.date).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const noDate   = filtered.filter(t=>!t.date);
+
+  const total    = RAW.length;
+  const done     = RAW.filter(t=>t.status==="Done").length;
+  const canceled = RAW.filter(t=>t.status==="Canceled").length;
+  const pending  = total - done - canceled;
+  const pct      = Math.round(done/total*100);
+
+  const sStats = Object.keys(SC).map(s=>{
+    const g=RAW.filter(t=>t.section===s);
+    const d=g.filter(t=>t.status==="Done").length;
+    return {s,total:g.length,done:d,pct:Math.round(d/g.length*100),color:SC[s]};
+  });
+
+  const LW = 295;
+
+  // TABS — Section
+  const tabsHTML = SECTIONS.map(s=>{
+    const active = s===activeSection;
+    const color  = s==="All" ? "#b8893a" : SC[s]||"#b8893a";
+    return `<button class="stab" data-sec="${s}" style="
+      padding:5px 16px;font-size:10px;letter-spacing:0.1em;font-weight:500;
+      background:${active?color+"18":"transparent"};
+      color:${active?color:"#8a7a6a"};
+      border:1px solid ${active?color+"88":"#d4ccc0"};
+      border-radius:20px;">${s.toUpperCase()}</button>`;
+  }).join("");
+
+  // TABS — Responsible
+  const RESPONSIBLES = ["All", ...[...new Set(RAW.map(t=>t.responsible).filter(r=>r&&r!=="—"))].sort()];
+  const respTabsHTML = RESPONSIBLES.map(r=>{
+    const active = r===activeResponsible;
+    const color  = "#4a7c6a";
+    return `<button class="rtab" data-resp="${r}" style="
+      padding:4px 13px;font-size:9.5px;letter-spacing:0.09em;font-weight:500;
+      background:${active?color+"16":"transparent"};
+      color:${active?color:"#8a7a6a"};
+      border:1px solid ${active?color+"88":"#d4ccc0"};
+      border-radius:20px;cursor:pointer;font-family:'Jost',sans-serif;
+      transition:all 0.18s;">${r==="All"?"ALL":r.toUpperCase()}</button>`;
+  }).join("");
+
+  // SECTION PROGRESS
+  const spHTML = sStats.map(({s,total:t,done:d,pct:p,color})=>`
+    <div style="flex:1 1 110px;min-width:95px">
+      <div style="display:flex;justify-content:space-between;font-size:9.5px;margin-bottom:4px">
+        <span style="color:#6a5f4a">${s}</span>
+        <span style="color:${color};font-weight:600">${p}%</span>
+      </div>
+      <div style="height:4px;background:#e8e0d0;border-radius:2px">
+        <div style="width:${p}%;height:100%;background:${color};border-radius:2px"></div>
+      </div>
+      <div style="font-size:9px;color:#9a8a78;margin-top:3px">${d}/${t} done</div>
+    </div>`).join("");
+
+  // MONTH HEADER
+  const monthH = MONTHS.map(({label,start,days})=>`
+    <div style="position:absolute;left:${start/DAYS*100}%;width:${days/DAYS*100}%;height:100%;
+      border-left:1px solid #d4ccc0;display:flex;align-items:center;padding-left:12px;
+      font-size:9.5px;letter-spacing:0.14em;color:#b8893a;font-weight:600">${label}</div>`).join("");
+
+  const weekTicks = WEEKS.map(w=>
+    `<div style="position:absolute;left:${w/DAYS*100}%;top:0;bottom:0;width:1px;background:#ece8e0"></div>`
+  ).join("");
+
+  // TASK ROWS
+  const rowsHTML = withDate.map((task,i)=>{
+    const off    = toOff(task.date);
+    const bEnd   = off;
+    const bStart = Math.max(0, bEnd-5);
+    const lPct   = bStart/DAYS*100;
+    const wPct   = Math.max((bEnd-bStart+1)/DAYS*100, 0.6);
+    const sCfg   = STATUS_CFG[task.status]||STATUS_CFG.Pending;
+    const sColor = SC[task.section]||"#b8893a";
+    const isDone = task.status==="Done";
+    const isCanceled = task.status==="Canceled";
+    const bg = i%2===0 ? "#ffffff" : "#faf7f3";
+
+    const barBg = isDone
+      ? `background:${sCfg.color};`
+      : isCanceled
+      ? `background:repeating-linear-gradient(45deg,${sCfg.color}55 0px,${sCfg.color}55 4px,transparent 4px,transparent 8px);border:1px solid ${sCfg.color};`
+      : `background:${sCfg.color};opacity:0.82;`;
+
+    const monthDivs = MONTHS.map(({start})=>
+      `<div style="position:absolute;left:${start/DAYS*100}%;top:0;bottom:0;width:1px;background:#e8e0d0"></div>`
+    ).join("");
+    const wkLines = WEEKS.map(w=>
+      `<div style="position:absolute;left:${w/DAYS*100}%;top:0;bottom:0;width:1px;background:#f0ece4"></div>`
+    ).join("");
+
+    return `
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:${bg};position:relative">
+      <div style="width:${LW}px;min-width:${LW}px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
+        <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">${task.ref}</span>
+        <span style="width:3px;height:18px;background:${sColor};border-radius:2px;flex-shrink:0;opacity:${isCanceled?0.35:0.8}"></span>
+        <div style="flex:1;overflow:hidden">
+          <div style="font-size:11px;color:${isCanceled?"#b0a090":"#2a2018"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:${isCanceled?"line-through":"none"}" title="${task.desc}">${task.desc}</div>
+          <div style="font-size:9.5px;color:#b0a080;margin-top:1px;direction:rtl;text-align:right;font-family:system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" dir="rtl" title="${task.ar}">${task.ar}</div>
+        </div>
+      </div>
+      <div style="flex:1;position:relative">
+        ${monthDivs}${wkLines}
+        <div style="position:absolute;left:${TODAY_OFF/DAYS*100}%;top:0;bottom:0;width:2px;background:${isDone?"rgba(220,38,38,0.18)":"rgba(220,38,38,0.55)"};z-index:3"></div>
+        <div style="position:absolute;left:${lPct}%;width:${wPct}%;top:50%;transform:translateY(-50%);height:${isDone?14:12}px;border-radius:4px;z-index:2;${barBg}"></div>
+        <div class="tooltip">
+          <span style="font-size:9px;color:${sColor};background:#fff;padding:2px 8px;border-radius:3px;border:1px solid ${sColor}55;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">${task.section} · ${task.area}</span>
+          <span style="font-size:9px;color:#6a5f4a;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d4ccc0;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">${task.responsible}</span>
+          <span style="font-size:9px;color:${sCfg.color};background:#fff;padding:2px 8px;border-radius:3px;border:1px solid ${sCfg.color}77;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ ${task.date}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // NO DATE ROWS
+  const noDateHTML = noDate.length===0 ? "" : `
+    <div style="padding:9px 16px;background:#f5f0e8;border-top:1px solid #ddd6c8;border-bottom:1px solid #ddd6c8;font-size:9px;letter-spacing:0.18em;color:#9a8a70">
+      PENDING DATE ASSIGNMENT — ${noDate.length} ITEMS
+    </div>
+    ${noDate.map((task,i)=>{
+      const sColor=SC[task.section]||"#b8893a";
+      const isCanceled=task.status==="Canceled";
+      return `
+      <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:${i%2===0?"#fff":"#faf7f3"}">
+        <div style="width:${LW}px;min-width:${LW}px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
+          <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">${task.ref}</span>
+          <span style="width:3px;height:18px;background:${sColor};border-radius:2px;flex-shrink:0;opacity:0.3"></span>
+          <div style="flex:1;overflow:hidden">
+            <div style="font-size:11px;color:${isCanceled?"#b0a090":"#8a7a68"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:${isCanceled?"line-through":"none"}">${task.desc}</div>
+            <div style="font-size:9.5px;color:#c0b090;margin-top:1px;direction:rtl;text-align:right;font-family:system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" dir="rtl">${task.ar}</div>
+          </div>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;padding-left:16px;gap:10px">
+          <span style="font-size:9px;letter-spacing:0.1em;color:${isCanceled?"#9ca3af":"#8a7a68"};border:1px solid ${isCanceled?"#d1d5db":"#c8bfb0"};border-radius:12px;padding:2px 10px;background:${isCanceled?"#f9fafb":"#f7f4ef"}">${isCanceled?"CANCELED":"DATE TBD"}</span>
+          <span style="font-size:9.5px;color:#9a8a78">${task.responsible}</span>
+          <span style="font-size:9.5px;color:${sColor}99">${task.section}</span>
+        </div>
+      </div>`;
+    }).join("")}`;
+
+  document.getElementById("root").innerHTML = `
+  <div style="font-family:'Jost',system-ui,sans-serif;background:#f7f4ef;min-height:100vh;color:#1a1612">
+
+    <!-- HEADER -->
+    <div style="background:#ffffff;border-bottom:3px solid #b8893a;padding:24px 32px 18px;box-shadow:0 1px 8px rgba(0,0,0,0.06)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:600;letter-spacing:0.06em;color:#1a1612">VILLA 4 — PUNCH LIST TRACKER</div>
+          <div style="font-size:11px;color:#9a8a70;letter-spacing:0.12em;margin-top:5px">REVISION 04 &nbsp;·&nbsp; AS OF ${TODAY_FULL} &nbsp;·&nbsp; RCC – DESIGN &amp; SUPERVISION</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <!-- UPLOAD UPDATE BUTTON -->
+          <button class="upload-btn" onclick="document.getElementById('uploadInput').click()" title="Upload an updated Excel tracking file (.xlsx) to sync changes">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            UPLOAD UPDATE
+          </button>
+          <div style="text-align:right">
+            <div style="font-size:9px;color:#b8a888;letter-spacing:0.14em">PROJECT</div>
+            <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;color:#b8893a;letter-spacing:0.08em;font-weight:600">VILLA 4</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div style="display:flex;gap:10px;padding:16px 32px;background:#f7f4ef;border-bottom:1px solid #e0d8cc">
+      ${[
+        {label:"TOTAL ITEMS", val:total,    color:"#2a2018", border:"#d4ccc0"},
+        {label:"COMPLETED",   val:done,     color:"#16a34a", border:"#bbf7d0"},
+        {label:"IN PROGRESS", val:pending,  color:"#d97706", border:"#fde68a"},
+        {label:"CANCELED",    val:canceled, color:"#9ca3af", border:"#e5e7eb"},
+      ].map(c=>`
+        <div style="flex:1;background:#fff;border:1px solid ${c.border};border-radius:10px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+          <div style="font-size:9px;letter-spacing:0.14em;color:#9a8a70;margin-bottom:6px">${c.label}</div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:600;color:${c.color}">${c.val}</div>
+        </div>`).join("")}
+      <div style="flex:1.6;background:#fff;border:1px solid #fde68a;border-radius:10px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+        <div style="font-size:9px;letter-spacing:0.14em;color:#9a8a70;margin-bottom:6px">OVERALL COMPLETION</div>
+        <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:600;color:#b8893a">${pct}%</div>
+        <div style="margin-top:8px;height:5px;background:#f0ece4;border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#b8893a,#d4a855);border-radius:3px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION PROGRESS -->
+    <div style="padding:14px 32px;background:#fff;border-bottom:1px solid #e0d8cc">
+      <div style="font-size:9px;letter-spacing:0.18em;color:#9a8a70;margin-bottom:10px">PROGRESS BY SECTION</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">${spHTML}</div>
+    </div>
+
+    <!-- TABS + LEGEND -->
+    <div style="display:flex;gap:6px;padding:10px 32px;background:#f7f4ef;border-bottom:1px solid #e0d8cc;flex-wrap:wrap;align-items:center">
+      ${tabsHTML}
+      <div style="margin-left:auto;display:flex;align-items:center;gap:14px">
+        ${[["#16a34a","Completed"],["#d97706","In Progress"],["#9ca3af","Canceled"]].map(([c,l])=>
+          `<div style="display:flex;align-items:center;gap:5px"><div style="width:18px;height:7px;background:${c};border-radius:3px"></div><span style="font-size:10px;color:#8a7a6a">${l}</span></div>`
+        ).join("")}
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:2px;height:14px;background:#dc2626"></div><span style="font-size:10px;color:#8a7a6a">Today</span></div>
+      </div>
+    </div>
+
+    <!-- RESPONSIBLE FILTER -->
+    <div style="display:flex;gap:6px;padding:8px 32px;background:#f0ede7;border-bottom:1px solid #e0d8cc;flex-wrap:wrap;align-items:center">
+      <span style="font-size:8.5px;letter-spacing:0.16em;color:#a09078;font-weight:600;margin-right:4px;white-space:nowrap">
+        BY RESPONSIBLE
+      </span>
+      ${respTabsHTML}
+    </div>
+
+    <!-- GANTT -->
+    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 300px)">
+      <div style="min-width:920px">
+
+        <!-- Month header -->
+        <div style="display:flex;position:sticky;top:0;z-index:10;background:#f0ebe0;border-bottom:2px solid #d4ccc0;height:44px;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
+          <div style="width:${LW}px;min-width:${LW}px;padding:0 16px;display:flex;align-items:center;font-size:9px;letter-spacing:0.14em;color:#9a8a70;border-right:1px solid #d4ccc0;font-weight:500">
+            # &nbsp;&nbsp; TASK DESCRIPTION &amp; AREA
+          </div>
+          <div style="flex:1;position:relative">
+            ${monthH}${weekTicks}
+            <div style="position:absolute;left:${TODAY_OFF/DAYS*100}%;top:0;bottom:0;width:2px;background:rgba(220,38,38,0.8);z-index:5">
+              <div style="position:absolute;top:5px;left:4px;font-size:8.5px;color:#dc2626;letter-spacing:0.1em;font-weight:700;white-space:nowrap">${TODAY_LABEL}</div>
+            </div>
+          </div>
+        </div>
+
+        ${rowsHTML}
+        ${noDateHTML}
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="padding:10px 32px;background:#fff;border-top:1px solid #e0d8cc;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:9px;color:#b0a080;letter-spacing:0.12em">RCC — DESIGN &amp; SUPERVISION DIVISION</span>
+      <span style="font-size:9px;color:#b0a080;letter-spacing:0.12em">VILLA 4 PUNCH LIST R04 &nbsp;·&nbsp; CONFIDENTIAL</span>
+    </div>
+  </div>`;
+
+  document.querySelectorAll(".stab").forEach(btn=>{
+    btn.addEventListener("click",()=>{ activeSection=btn.dataset.sec; render(); });
+  });
+  document.querySelectorAll(".rtab").forEach(btn=>{
+    btn.addEventListener("click",()=>{ activeResponsible=btn.dataset.resp; render(); });
+  });
+}
+
+// ─── UPLOAD & COMPARE ─────────────────────────────────────────────────────────
+
+let _pendingDiff   = null;
+let _pendingNewRaw = null;
+
+/**
+ * Excel column layout (0-indexed):
+ *  0  → #            → id
+ *  1  → ID           → ref
+ *  2  → Section      → section
+ *  3  → Location/Area (Arabic label – informational only, not diffed)
+ *  4  → Description  → desc
+ *  5  → الوصف        → ar
+ *  6  → Status       → status  (null → "Pending")
+ *  7  → Responsible  → responsible
+ *  8  → Target Date  → date    (Date object → "YYYY-MM-DD" | null)
+ *  9  → Remarks      (ignored)
+ */
+function handleUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    input.value = "";
+    try {
+      const data     = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:"array", cellDates:true});
+      const ws       = workbook.Sheets[workbook.SheetNames[0]];
+      const rows     = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+
+      if (!rows || rows.length < 2) { showUploadError("No data rows found."); return; }
+
+      // rows[0] = header, rows[1..n] = data
+      const newRaw = rows.slice(1).map(row => {
+        const id = row[0];
+        if (id == null || id === "") return null;   // skip blank rows
+
+        // Date: SheetJS gives a JS Date when cellDates:true
+        let date = null;
+        const dateVal = row[8];
+        if (dateVal instanceof Date && !isNaN(dateVal)) {
+          const y = dateVal.getFullYear();
+          const m = String(dateVal.getMonth()+1).padStart(2,"0");
+          const d = String(dateVal.getDate()).padStart(2,"0");
+          date = `${y}-${m}-${d}`;
+        }
+
+        // Status: null/empty in Excel → "Pending"
+        const rawStatus = row[6];
+        const status = rawStatus === "Done"     ? "Done"
+                     : rawStatus === "Canceled" ? "Canceled"
+                     : "Pending";
+
+        return {
+          id:          Number(id),
+          ref:         row[1] != null ? Number(row[1]) : null,
+          section:     (row[2] || "").trim(),
+          area:        (row[3] || "").trim(),   // Arabic label; kept for new items
+          desc:        (row[4] || "").trim(),
+          ar:          (row[5] || "").trim(),
+          status,
+          responsible: (row[7] || "—").trim(),
+          date,
+        };
+      }).filter(Boolean);
+
+      if (!newRaw.length) { showUploadError("Could not parse any rows."); return; }
+
+      _pendingDiff   = compareLists(RAW, newRaw);
+      _pendingNewRaw = newRaw;
+      openDiffModal(_pendingDiff);
+
+    } catch(err) {
+      console.error(err);
+      showUploadError("File could not be read. Make sure it is a valid .xlsx file.");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/**
+ * Compares two RAW arrays item-by-item (matched by numeric id = '#' column).
+ * Tracks: status, responsible, date, desc, ar.
+ * Skips: area (Arabic in Excel vs English in dashboard).
+ * Returns { added, modified, unchanged, removed }.
+ */
+function compareLists(current, incoming) {
+  const TRACK = ["status", "responsible", "date", "desc", "ar"];
+
+  const curMap = new Map(current.map(t => [t.id, t]));
+  const incMap = new Map(incoming.map(t => [t.id, t]));
+
+  const added=[], modified=[], unchanged=[], removed=[];
+
+  for (const item of incoming) {
+    const cur = curMap.get(item.id);
+    if (!cur) { added.push(item); continue; }
+
+    const changes = {};
+    let changed = false;
+    for (const f of TRACK) {
+      const a = cur[f]  == null ? "" : String(cur[f]).trim();
+      const b = item[f] == null ? "" : String(item[f]).trim();
+      if (a !== b) { changes[f] = {from: cur[f], to: item[f]}; changed = true; }
+    }
+    if (changed) modified.push({item, changes, old: cur});
+    else         unchanged.push(item);
+  }
+
+  for (const item of current) {
+    if (!incMap.has(item.id)) removed.push(item);
+  }
+
+  return {added, modified, unchanged, removed};
+}
+
+/**
+ * Builds and opens the diff modal with full review UI.
+ */
+function openDiffModal(diff) {
+  const {added, modified, unchanged, removed} = diff;
+  const totalChanges = added.length + modified.length;
+
+  // ── Summary chips ─────────────────────────────────────────
+  const chips = [
+    {label:"NEW",          count:added.length,     color:"#16a34a", bg:"#dcfce7"},
+    {label:"MODIFIED",     count:modified.length,  color:"#d97706", bg:"#fef3c7"},
+    {label:"UNCHANGED",    count:unchanged.length, color:"#6b7280", bg:"#f3f4f6"},
+    ...(removed.length ? [{label:"ABSENT",count:removed.length,color:"#dc2626",bg:"#fee2e2"}]:[]),
+  ];
+
+  document.getElementById("diffSummary").innerHTML = chips.map(({label,count,color,bg})=>`
+    <div style="display:inline-flex;align-items:center;gap:7px;padding:6px 16px;
+      border-radius:20px;background:${bg};border:1px solid ${color}44">
+      <span style="font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;
+        font-weight:600;color:${color};line-height:1">${count}</span>
+      <span style="font-size:8.5px;letter-spacing:0.15em;color:${color};
+        font-weight:600">${label}</span>
+    </div>`).join("");
+
+  // ── Apply button state ────────────────────────────────────
+  const applyBtn = document.getElementById("applyBtn");
+  if (totalChanges === 0) {
+    applyBtn.disabled = true;
+    applyBtn.textContent = "NO CHANGES TO APPLY";
+  } else {
+    applyBtn.disabled = false;
+    applyBtn.textContent = `APPLY ${totalChanges} CHANGE${totalChanges!==1?"S":""}`;
+  }
+
+  // ── Body HTML ─────────────────────────────────────────────
+  const FIELD_LABELS = {
+    status:"Status", responsible:"Responsible", date:"Due Date",
+    desc:"Description (EN)", ar:"Description (AR)",
+    section:"Section", area:"Area", ref:"Ref #"
+  };
+
+  let body = "";
+
+  // ── No changes at all ─────────────────────────────────────
+  if (totalChanges === 0 && removed.length === 0) {
+    body = `
+      <div style="padding:52px 24px;text-align:center;color:#9a8a70">
+        <div style="font-size:32px;margin-bottom:12px;opacity:0.5">✓</div>
+        <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;color:#6a5f4a">
+          No changes detected
+        </div>
+        <div style="font-size:11px;margin-top:7px;letter-spacing:0.06em">
+          The uploaded Excel file matches the current data exactly.
+        </div>
+      </div>`;
+  } else {
+
+    // ── ADDED ───────────────────────────────────────────────
+    if (added.length) {
+      body += `
+        <div class="diff-sec-hdr" style="background:#f0fdf4;color:#16a34a">
+          ＋ &nbsp;${added.length} NEW ITEM${added.length!==1?"S":""} — will be added
+        </div>`;
+      body += added.map(item=>`
+        <div class="diff-row">
+          <div class="diff-badge" style="background:#dcfce7;color:#16a34a">NEW</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+              <span style="font-size:8.5px;color:#9a8a70;font-weight:600">#${item.ref}</span>
+              <span style="font-size:8.5px;color:#b8893a;letter-spacing:0.1em">${item.section} · ${item.area}</span>
+            </div>
+            <div style="font-size:11px;color:#1a1612;font-weight:500;margin-bottom:3px">${item.desc}</div>
+            <div style="font-size:9.5px;color:#9a8a70;direction:rtl;text-align:right;
+              font-family:system-ui,sans-serif" dir="rtl">${item.ar}</div>
+            <div style="display:flex;gap:14px;margin-top:7px;flex-wrap:wrap">
+              ${item.status     ? `<span style="font-size:9px;color:#6b7280">Status: <strong style="color:#1a1612">${item.status}</strong></span>` : ""}
+              ${item.responsible? `<span style="font-size:9px;color:#6b7280">By: <strong style="color:#1a1612">${item.responsible}</strong></span>` : ""}
+              ${item.date       ? `<span style="font-size:9px;color:#6b7280">Due: <strong style="color:#1a1612">${item.date}</strong></span>` : ""}
+            </div>
+          </div>
+        </div>`).join("");
+    }
+
+    // ── MODIFIED ────────────────────────────────────────────
+    if (modified.length) {
+      body += `
+        <div class="diff-sec-hdr" style="background:#fffbeb;color:#d97706">
+          ✎ &nbsp;${modified.length} MODIFIED ITEM${modified.length!==1?"S":""} — fields that changed
+        </div>`;
+      body += modified.map(({item, changes})=>`
+        <div class="diff-row">
+          <div class="diff-badge" style="background:#fef3c7;color:#d97706">UPDATED</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+              <span style="font-size:8.5px;color:#9a8a70;font-weight:600">#${item.ref}</span>
+              <span style="font-size:8.5px;color:#b8893a;letter-spacing:0.1em">${item.section} · ${item.area}</span>
+            </div>
+            <div style="font-size:11px;color:#1a1612;font-weight:500;margin-bottom:6px">${item.desc}</div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              ${Object.entries(changes).map(([f,{from,to}])=>`
+                <div class="field-change">
+                  <span class="fchange-label">${FIELD_LABELS[f]||f}</span>
+                  <span class="from-val">${from==null||from===""?"—":from}</span>
+                  <span class="chg-arrow">→</span>
+                  <span class="to-val">${to==null||to===""?"—":to}</span>
+                </div>`).join("")}
+            </div>
+          </div>
+        </div>`).join("");
+    }
+
+    // ── ABSENT (informational only, not removed) ────────────
+    if (removed.length) {
+      body += `
+        <div class="diff-sec-hdr" style="background:#fff1f2;color:#dc2626">
+          ⚠ &nbsp;${removed.length} ITEM${removed.length!==1?"S":""} NOT IN UPLOADED FILE
+          &nbsp;—&nbsp; these will be kept as-is
+        </div>`;
+      body += removed.map(item=>`
+        <div class="diff-row" style="opacity:0.6">
+          <div class="diff-badge" style="background:#fee2e2;color:#dc2626">ABSENT</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+              <span style="font-size:8.5px;color:#9a8a70;font-weight:600">#${item.ref}</span>
+              <span style="font-size:8.5px;color:#b8893a;letter-spacing:0.1em">${item.section} · ${item.area}</span>
+            </div>
+            <div style="font-size:11px;color:#1a1612">${item.desc}</div>
+            <div style="font-size:9px;color:#dc2626;margin-top:5px;letter-spacing:0.04em">
+              Present in current list but missing from the uploaded file. It will NOT be deleted.
+            </div>
+          </div>
+        </div>`).join("");
+    }
+
+  } // end else
+
+  document.getElementById("diffBody").innerHTML = body;
+  document.getElementById("diffBackdrop").classList.add("active");
+}
+
+/**
+ * Exports the current diff as a styled, print-ready HTML report in a new tab.
+ * Engineers can review and use the browser's Print → Save as PDF.
+ */
+function exportDiffReport() {
+  if (!_pendingDiff) return;
+  const {added, modified, unchanged, removed} = _pendingDiff;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  const timeStr = now.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
+
+  const FIELD_LABELS = {
+    status:"Status", responsible:"Responsible", date:"Due Date",
+    desc:"Description (EN)", ar:"Description (AR)",
+  };
+
+  // ── Status pill helper ──────────────────────────────────────────
+  function statusPill(val) {
+    const cfg = {Done:"#16a34a", Pending:"#d97706", Canceled:"#9ca3af"}[val] || "#9ca3af";
+    return `<span style="display:inline-block;padding:2px 10px;border-radius:10px;
+      background:${cfg}22;color:${cfg};border:1px solid ${cfg}55;
+      font-size:9px;letter-spacing:0.1em;font-weight:600">${val||"—"}</span>`;
+  }
+
+  // ── Section colour helper ───────────────────────────────────────
+  const SC2 = {"Backyard":"#2e7d4f","External Front":"#1a5fa8","First Floor":"#6b3fa0",
+    "Ground Floor":"#b5770d","Basement":"#b83232","Second Floor":"#0e7490","General":"#64748b"};
+  function secColor(s){ return SC2[s]||"#b8893a"; }
+
+  // ── Summary row ─────────────────────────────────────────────────
+  const summaryChips = [
+    {label:"New Items",      count:added.length,     color:"#16a34a", bg:"#f0fdf4"},
+    {label:"Modified Items", count:modified.length,  color:"#d97706", bg:"#fffbeb"},
+    {label:"Unchanged",      count:unchanged.length, color:"#6b7280", bg:"#f9fafb"},
+    ...(removed.length?[{label:"Absent from Upload",count:removed.length,color:"#dc2626",bg:"#fff1f2"}]:[]),
+  ].map(({label,count,color,bg})=>`
+    <div style="display:inline-flex;flex-direction:column;align-items:center;
+      padding:14px 22px;border-radius:10px;background:${bg};border:1px solid ${color}33;min-width:100px">
+      <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:32px;
+        font-weight:600;color:${color};line-height:1">${count}</div>
+      <div style="font-size:8px;letter-spacing:0.15em;color:${color};margin-top:5px;
+        font-weight:600;text-align:center">${label.toUpperCase()}</div>
+    </div>`).join("");
+
+  // ── Table cell shared styles ─────────────────────────────────────
+  const TH = `font-size:8.5px;letter-spacing:0.12em;color:#9a8a70;text-align:left;
+    padding:9px 12px;font-weight:600;border-bottom:1px solid #e0d8cc;`;
+  const TD = `font-size:10.5px;padding:10px 12px;border-bottom:1px solid #f0ece4;
+    vertical-align:top;`;
+
+  // ── Added section ────────────────────────────────────────────────
+  let addedHTML = "";
+  if (added.length) {
+    addedHTML = `
+      <div style="margin-top:36px">
+        <div style="font-size:9px;letter-spacing:0.2em;font-weight:700;color:#16a34a;
+          border-bottom:2px solid #16a34a22;padding-bottom:8px;margin-bottom:0">
+          ＋ &nbsp;NEW ITEMS — ${added.length} to be added
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-top:0">
+          <thead>
+            <tr style="background:#f0fdf4">
+              <th style="${TH}width:40px">#</th>
+              <th style="${TH}width:60px">Ref</th>
+              <th style="${TH}width:110px">Section</th>
+              <th style="${TH}">Description</th>
+              <th style="${TH}width:80px">Responsible</th>
+              <th style="${TH}width:80px">Due Date</th>
+              <th style="${TH}width:72px">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${added.map((t,i)=>`
+              <tr style="background:${i%2===0?"#fff":"#f8fdf9"}">
+                <td style="${TD}color:#9a8a70">${t.id}</td>
+                <td style="${TD}color:#9a8a70">${t.ref||"—"}</td>
+                <td style="${TD}"><span style="color:${secColor(t.section)};font-size:9.5px;
+                  font-weight:600">${t.section}</span></td>
+                <td style="${TD}">
+                  <div style="font-size:11px;color:#1a1612">${t.desc||"—"}</div>
+                  <div style="font-size:9.5px;color:#9a8a70;direction:rtl;text-align:right;
+                    font-family:system-ui,sans-serif;margin-top:2px" dir="rtl">${t.ar||""}</div>
+                </td>
+                <td style="${TD}font-size:10px;color:#4a3f30">${t.responsible||"—"}</td>
+                <td style="${TD}font-size:10px;color:#4a3f30">${t.date||"TBD"}</td>
+                <td style="${TD}">${statusPill(t.status)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  // ── Modified section ─────────────────────────────────────────────
+  let modifiedHTML = "";
+  if (modified.length) {
+    modifiedHTML = `
+      <div style="margin-top:36px">
+        <div style="font-size:9px;letter-spacing:0.2em;font-weight:700;color:#d97706;
+          border-bottom:2px solid #d9770622;padding-bottom:8px;margin-bottom:0">
+          ✎ &nbsp;MODIFIED ITEMS — ${modified.length} field-level change${modified.length!==1?"s":""}
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-top:0">
+          <thead>
+            <tr style="background:#fffbeb">
+              <th style="${TH}width:40px">#</th>
+              <th style="${TH}width:60px">Ref</th>
+              <th style="${TH}width:130px">Section / Area</th>
+              <th style="${TH}">Description</th>
+              <th style="${TH}">Field Changed</th>
+              <th style="${TH}">From</th>
+              <th style="${TH}">To</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${modified.map(({item,changes},i)=>
+              Object.entries(changes).map(([f,{from,to}],fi)=>`
+                <tr style="background:${i%2===0?"#fff":"#fdfaf3"}">
+                  ${fi===0?`
+                    <td style="${TD}color:#9a8a70" rowspan="${Object.keys(changes).length}">${item.id}</td>
+                    <td style="${TD}color:#9a8a70" rowspan="${Object.keys(changes).length}">${item.ref||"—"}</td>
+                    <td style="${TD}" rowspan="${Object.keys(changes).length}">
+                      <span style="color:${secColor(item.section)};font-size:9.5px;font-weight:600">${item.section}</span>
+                    </td>
+                    <td style="${TD}" rowspan="${Object.keys(changes).length}">
+                      <div style="font-size:11px;color:#1a1612">${item.desc||"—"}</div>
+                      <div style="font-size:9.5px;color:#9a8a70;direction:rtl;text-align:right;
+                        font-family:system-ui,sans-serif;margin-top:2px" dir="rtl">${item.ar||""}</div>
+                    </td>`:""}
+                  <td style="${TD}font-size:9px;letter-spacing:0.06em;color:#b8893a;
+                    font-weight:600;white-space:nowrap">${FIELD_LABELS[f]||f}</td>
+                  <td style="${TD}font-size:10px;color:#a09080;text-decoration:line-through;
+                    word-break:break-word">${from==null||from===""?"—":from}</td>
+                  <td style="${TD}font-size:10px;color:#1a1612;font-weight:600;
+                    word-break:break-word">${to==null||to===""?"—":to}</td>
+                </tr>`).join("")
+            ).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  // ── Absent section (informational) ───────────────────────────────
+  let absentHTML = "";
+  if (removed.length) {
+    absentHTML = `
+      <div style="margin-top:36px">
+        <div style="font-size:9px;letter-spacing:0.2em;font-weight:700;color:#dc2626;
+          border-bottom:2px solid #dc262622;padding-bottom:8px;margin-bottom:0">
+          ⚠ &nbsp;ABSENT FROM UPLOAD — ${removed.length} item${removed.length!==1?"s":""} (kept as-is, not deleted)
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-top:0">
+          <thead>
+            <tr style="background:#fff1f2">
+              <th style="${TH}width:40px">#</th>
+              <th style="${TH}width:60px">Ref</th>
+              <th style="${TH}width:110px">Section</th>
+              <th style="${TH}">Description</th>
+              <th style="${TH}width:80px">Responsible</th>
+              <th style="${TH}width:72px">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${removed.map((t,i)=>`
+              <tr style="background:${i%2===0?"#fff":"#fff8f8"};opacity:0.75">
+                <td style="${TD}color:#9a8a70">${t.id}</td>
+                <td style="${TD}color:#9a8a70">${t.ref||"—"}</td>
+                <td style="${TD}"><span style="color:${secColor(t.section)};font-size:9.5px;
+                  font-weight:600">${t.section}</span></td>
+                <td style="${TD}">
+                  <div style="font-size:11px;color:#1a1612">${t.desc||"—"}</div>
+                  <div style="font-size:9.5px;color:#9a8a70;direction:rtl;text-align:right;
+                    font-family:system-ui,sans-serif;margin-top:2px" dir="rtl">${t.ar||""}</div>
+                </td>
+                <td style="${TD}font-size:10px;color:#4a3f30">${t.responsible||"—"}</td>
+                <td style="${TD}">${statusPill(t.status)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  // ── Full page HTML ───────────────────────────────────────────────
+  const totalChanges = added.length + modified.length;
+  const reportHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Villa 4 — Update Report · ${dateStr}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Jost',system-ui,sans-serif;background:#f7f4ef;color:#1a1612;
+    padding:40px;max-width:1100px;margin:0 auto}
+  @media print{
+    body{background:#fff;padding:20px}
+    .no-print{display:none!important}
+    @page{margin:18mm 14mm;size:A4 landscape}
+    table{page-break-inside:auto}
+    tr{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<!-- Print button -->
+<div class="no-print" style="text-align:right;margin-bottom:20px">
+  <button onclick="window.print()" style="font-family:'Jost',sans-serif;font-size:10px;
+    letter-spacing:0.13em;font-weight:500;padding:9px 22px;border-radius:20px;cursor:pointer;
+    border:1px solid #b8893a;background:#b8893a;color:#fff">
+    ⎙ &nbsp;PRINT / SAVE AS PDF
+  </button>
+</div>
+
+<!-- Header -->
+<div style="background:#fff;border-top:4px solid #b8893a;border-radius:10px;
+  padding:28px 36px 22px;box-shadow:0 2px 12px rgba(0,0,0,0.07);margin-bottom:28px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;
+        font-weight:600;letter-spacing:0.06em;color:#1a1612">
+        VILLA 4 — PUNCH LIST UPDATE REPORT
+      </div>
+      <div style="font-size:10px;color:#9a8a70;letter-spacing:0.12em;margin-top:6px">
+        RCC – DESIGN &amp; SUPERVISION &nbsp;·&nbsp; GENERATED ${dateStr.toUpperCase()} AT ${timeStr}
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:8.5px;color:#b8a888;letter-spacing:0.15em">STATUS</div>
+      <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:16px;
+        color:${totalChanges>0?"#d97706":"#16a34a"};font-weight:600;letter-spacing:0.08em;margin-top:3px">
+        ${totalChanges>0?"PENDING APPROVAL":"NO CHANGES"}
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:4px;padding-top:14px;border-top:1px solid #f0ece4;
+    font-size:10px;color:#9a8a70;letter-spacing:0.06em">
+    This report was generated from an uploaded Excel tracking file and requires review and approval
+    before changes are applied to the Villa 4 Punch List dashboard.
+    &nbsp;·&nbsp; تقرير المراجعة يتطلب موافقة قبل تطبيق التحديثات
+  </div>
+</div>
+
+<!-- Summary -->
+<div style="background:#fff;border-radius:10px;padding:24px 36px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.06);margin-bottom:28px">
+  <div style="font-size:9px;letter-spacing:0.18em;color:#9a8a70;margin-bottom:16px;
+    font-weight:600">CHANGE SUMMARY</div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap">${summaryChips}</div>
+</div>
+
+<!-- Changes -->
+<div style="background:#fff;border-radius:10px;padding:28px 36px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+  ${totalChanges===0&&removed.length===0
+    ? `<div style="text-align:center;padding:40px;color:#9a8a70">
+        <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;color:#6a5f4a">
+          No changes detected
+        </div>
+        <div style="font-size:11px;margin-top:8px">
+          The uploaded Excel file matches the current dashboard data exactly.
+        </div>
+      </div>`
+    : addedHTML + modifiedHTML + absentHTML
+  }
+</div>
+
+<!-- Approval footer -->
+<div style="margin-top:28px;background:#fff;border-radius:10px;
+  padding:24px 36px;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+  <div style="font-size:9px;letter-spacing:0.18em;color:#9a8a70;margin-bottom:18px;font-weight:600">
+    APPROVAL SIGN-OFF
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
+    ${["Prepared By","Reviewed By","Approved By"].map(role=>`
+      <div>
+        <div style="font-size:9px;letter-spacing:0.13em;color:#9a8a70;margin-bottom:36px">${role.toUpperCase()}</div>
+        <div style="border-top:1px solid #c0b090;padding-top:7px;display:flex;
+          justify-content:space-between;font-size:9px;color:#c0b090">
+          <span>Name &amp; Signature</span><span>Date</span>
+        </div>
+      </div>`).join("")}
+  </div>
+</div>
+
+<!-- Page footer -->
+<div style="margin-top:20px;display:flex;justify-content:space-between;
+  font-size:8.5px;color:#c0b090;letter-spacing:0.1em;padding:0 4px">
+  <span>RCC — DESIGN &amp; SUPERVISION DIVISION</span>
+  <span>VILLA 4 PUNCH LIST · CONFIDENTIAL · ${dateStr.toUpperCase()}</span>
+</div>
+
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  win.document.write(reportHTML);
+  win.document.close();
+}
+
+function closeDiffModal() {
+  document.getElementById("diffBackdrop").classList.remove("active");
+  _pendingDiff   = null;
+  _pendingNewRaw = null;
+}
+
+/**
+ * Applies the pending diff: updates modified items in place, appends new items.
+ */
+function applyDiff() {
+  if (!_pendingDiff) return;
+  const {added, modified} = _pendingDiff;
+
+  // 1. Update modified items
+  const idxMap = new Map(RAW.map((t,i) => [t.id, i]));
+  for (const {item} of modified) {
+    const idx = idxMap.get(item.id);
+    if (idx !== undefined) Object.assign(RAW[idx], item);
+  }
+
+  // 2. Add new items (guarantee unique id)
+  const maxId = Math.max(...RAW.map(t => t.id), 0);
+  let nextId  = maxId + 1;
+  const existingIds = new Set(RAW.map(t => t.id));
+  for (const item of added) {
+    const safeId = existingIds.has(item.id) ? nextId++ : item.id;
+    existingIds.add(safeId);
+    RAW.push({...item, id:safeId});
+  }
+
+  const addedCount    = added.length;
+  const modifiedCount = modified.length;
+
+  closeDiffModal();
+  render();
+  showToast(`${addedCount+modifiedCount} change${addedCount+modifiedCount!==1?"s":""} applied — ${addedCount} added · ${modifiedCount} updated`);
+}
+
+/** Small bottom-right toast notification */
+function showToast(msg) {
+  const t = document.createElement("div");
+  t.className = "vt-toast";
+  t.innerHTML = `<span style="color:#b8893a;margin-right:8px">✓</span>${msg}`;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.transition="opacity 0.4s"; t.style.opacity="0"; setTimeout(()=>t.remove(),420); }, 3600);
+}
+
+/** Error toast when file cannot be parsed */
+function showUploadError(msg) {
+  const t = document.createElement("div");
+  t.className = "vt-toast";
+  t.style.borderLeftColor = "#dc2626";
+  t.innerHTML = `<span style="color:#dc2626;margin-right:8px">✕</span>${msg || "Could not read the file — please upload a valid Villa 4 Excel tracking file (.xlsx)."}`;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.transition="opacity 0.4s"; t.style.opacity="0"; setTimeout(()=>t.remove(),420); }, 4000);
+}
+
+// Close modal on backdrop click
+document.getElementById("diffBackdrop").addEventListener("click", e => {
+  if (e.target === document.getElementById("diffBackdrop")) closeDiffModal();
+});
+
+render();
+</script>
+</body>
+</html>
