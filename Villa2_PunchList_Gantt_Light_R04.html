@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Villa 2 — Punch List Tracker R04</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Jost',system-ui,sans-serif;background:#f5f2ec;color:#1c1712;min-height:100vh}
+  ::-webkit-scrollbar{width:5px;height:5px}
+  ::-webkit-scrollbar-track{background:#ede8df}
+  ::-webkit-scrollbar-thumb{background:#b8953a66;border-radius:3px}
+  .tr:hover{background:rgba(184,149,58,0.05)!important}
+  .stab{cursor:pointer;transition:all 0.18s;font-family:'Jost',sans-serif}
+  .stab:hover{opacity:0.8}
+  .tooltip{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;gap:5px;align-items:center;z-index:10;pointer-events:none}
+  .tr:hover .tooltip{display:flex}
+
+  /* ── Modal ── */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px}
+  .modal-box{background:#fff;border-radius:14px;width:100%;max-width:860px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.35);overflow:hidden}
+  .modal-header{padding:20px 26px 18px;border-bottom:1px solid #ede8df;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#1c1712 0%,#2a2016 100%);flex-shrink:0}
+  .modal-body{overflow-y:auto;padding:22px 26px;flex:1;background:#faf7f2}
+  .modal-footer{padding:14px 26px;border-top:1px solid #ede8df;display:flex;gap:10px;justify-content:flex-end;background:#fff;flex-shrink:0}
+  .diff-block{margin-bottom:20px}
+  .diff-hdr{font-size:9.5px;letter-spacing:0.16em;font-weight:600;padding:6px 14px;border-radius:6px;margin-bottom:8px;display:inline-block}
+  .diff-row{padding:9px 14px;border-radius:8px;margin-bottom:5px;display:flex;gap:10px;align-items:flex-start}
+  .btn-gold{cursor:pointer;padding:8px 20px;border-radius:20px;border:none;background:#b8953a;color:#fff;font-family:'Jost',sans-serif;font-size:10px;letter-spacing:0.12em;font-weight:500;transition:opacity 0.2s}
+  .btn-gold:hover{opacity:0.82}
+  .btn-outline{cursor:pointer;padding:8px 20px;border-radius:20px;border:1px solid #ddd5c8;background:#fff;color:#6b5f4a;font-family:'Jost',sans-serif;font-size:10px;letter-spacing:0.12em;font-weight:500;transition:background 0.2s}
+  .btn-outline:hover{background:#faf7f2}
+  .btn-close{background:none;border:none;color:#8a7a5a;font-size:20px;line-height:1;cursor:pointer;padding:0 4px;transition:color 0.15s}
+  .btn-close:hover{color:#e8c870}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  TIMELINE — fully dynamic, never hardcoded
+// ═══════════════════════════════════════════════════════════════════════════
+const TIMELINE_START = new Date("2026-04-01");
+const DAYS           = 76;
+
+const TODAY_DATE  = new Date();
+const TODAY_OFF   = Math.max(0, Math.min(DAYS, Math.round((TODAY_DATE - TIMELINE_START) / 86400000)));
+const TODAY_LABEL = TODAY_DATE.toLocaleDateString("en-GB", { day:"numeric", month:"short" }).toUpperCase();
+
+function toOff(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  const m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if (!m) return null;
+  let [, d, mo, yr] = m;
+  if (yr.length === 2) yr = "20" + yr;
+  const dt = new Date(`${yr}-${mo.padStart(2,"0")}-${d.padStart(2,"0")}`);
+  return isNaN(dt) ? null : Math.round((dt - TIMELINE_START) / 86400000);
+}
+
+const MONTHS = [
+  { label:"APRIL 2026",  start:0,  days:30 },
+  { label:"MAY 2026",    start:30, days:31 },
+  { label:"JUNE 2026",   start:61, days:15 },
+];
+const WEEKS = [0,7,14,21,28,35,42,49,56,63,70];
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATUS CONFIG
+// ═══════════════════════════════════════════════════════════════════════════
+const SCFG = {
+  "Completed":                 { color:"#16a34a", label:"Completed",              group:"done"    },
+  "Delivered":                 { color:"#16a34a", label:"Delivered",              group:"done"    },
+  "Completed/Pending Payment": { color:"#15803d", label:"Completed / Pend. Pay.", group:"done"    },
+  "ready":                     { color:"#0891b2", label:"Ready",                  group:"done"    },
+  "ready to ship":             { color:"#0284c7", label:"Ready to Ship",          group:"active"  },
+  "in shipping":               { color:"#2563eb", label:"In Shipping",            group:"active"  },
+  "Scheduled":                 { color:"#7c3aed", label:"Scheduled",             group:"active"  },
+  "order sent":                { color:"#c2610a", label:"Order Sent",            group:"active"  },
+  "In Progress":               { color:"#b45309", label:"In Progress",           group:"active"  },
+  "Pending":                   { color:"#c0392b", label:"Pending",               group:"pending" },
+  "KNX":                       { color:"#64748b", label:"KNX / On Hold",         group:"pending" },
+};
+function getCfg(raw) {
+  const k = String(raw || "").trim();
+  return SCFG[k] || { color:"#64748b", label:k, group:"active" };
+}
+
+const AREA_COLORS = {
+  "Main Entrance":  "#b8953a",
+  "Washbasin Area": "#2563eb",
+  "Main majles":    "#7c3aed",
+  "Dining Room":    "#c0392b",
+};
+
+const LEGEND_ALL = [
+  ["#16a34a","Completed / Delivered"],
+  ["#15803d","Completed / Pend. Pay."],
+  ["#0891b2","Ready"],
+  ["#0284c7","Ready to Ship"],
+  ["#2563eb","In Shipping"],
+  ["#7c3aed","Scheduled"],
+  ["#c2610a","Order Sent"],
+  ["#b45309","In Progress"],
+  ["#c0392b","Pending"],
+  ["#64748b","KNX / On Hold"],
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DATA  — all original tasks preserved exactly; responsible + ar added
+// ═══════════════════════════════════════════════════════════════════════════
+let RAW = [
+  { id:1,  area:"Main Entrance",  task:"Palm & shell works + add shells around fireplace", ar:"أعمال النخيل والأصداف وإضافة أصداف حول المدفأة",          status:"In Progress",               date:"30-04-2026", responsible:"Darwin",     notes:"With Darwin working on sample" },
+  { id:2,  area:"Main Entrance",  task:"Entrance chandelier (painting stage)",             ar:"ثريا المدخل — مرحلة الطلاء",                               status:"In Progress",               date:"30-05-2026", responsible:"RCC Team",   notes:"" },
+  { id:3,  area:"Main Entrance",  task:"Abaya room completed",                             ar:"اكتمال غرفة العباية",                                       status:"KNX",                       date:null,         responsible:"RCC Team",   notes:"Lighting – awaiting KNX" },
+  { id:4,  area:"Main Entrance",  task:"L-shape sofa upholstery",                          ar:"تنجيد الكنبة على شكل حرف L",                              status:"In Progress",               date:"20-5-2026",  responsible:"RCC Team",   notes:"After finalizing fabric with owner – needs 5 days" },
+  { id:5,  area:"Main Entrance",  task:"Floor box cancellation",                           ar:"إلغاء صندوق الأرضية",                                      status:"In Progress",               date:null,         responsible:"RCC Team",   notes:"Waiting for owner decision" },
+  { id:6,  area:"Main Entrance",  task:"Bench fabric decision",                            ar:"قرار قماش المقعد",                                         status:"Pending",                   date:null,         responsible:"Owner",      notes:"Waiting for owner decision" },
+  { id:7,  area:"Washbasin Area", task:"Last internal sink delivery",                      ar:"تسليم المغسلة الداخلية الأخيرة",                           status:"in shipping",               date:"20-05-2026", responsible:"Paulo",      notes:"Paulo" },
+  { id:8,  area:"Washbasin Area", task:"Mirror (no lighting) by contractor",               ar:"المرآة بدون إضاءة — من قبل المقاول",                       status:"ready",                     date:"20-05-2026", responsible:"Contractor", notes:"After sink installation" },
+  { id:9,  area:"Washbasin Area", task:"Lower washbasin curtains",                         ar:"ستائر المغسلة السفلية",                                     status:"In Progress",               date:"30-4-2026",  responsible:"RCC Team",   notes:"Sample not approved" },
+  { id:10, area:"Washbasin Area", task:"Small black tiles frame",                          ar:"إطار البلاط الأسود الصغير",                                status:"In Progress",               date:"26-4-2026",  responsible:"Contractor", notes:"" },
+  { id:11, area:"Washbasin Area", task:"Toilet window curtains",                           ar:"ستائر نافذة الحمام",                                       status:"In Progress",               date:"25-4-2026",  responsible:"Contractor", notes:"Needs installation" },
+  { id:12, area:"Washbasin Area", task:"Table cover frame border",                         ar:"حدود إطار غطاء الطاولة",                                   status:"In Progress",               date:"25-05-2026", responsible:"RCC Team",   notes:"Previous order canceled – re-ordered" },
+  { id:13, area:"Main majles",    task:"Wooden works",                                     ar:"الأعمال الخشبية",                                           status:"Completed",                 date:null,         responsible:"Contractor", notes:"" },
+  { id:14, area:"Main majles",    task:"Curtain supplier meeting",                         ar:"اجتماع مورد الستائر",                                       status:"Scheduled",                 date:"22-04-2026", responsible:"RCC Team",   notes:"New fabric selection" },
+  { id:15, area:"Main majles",    task:"LULU LAROTUNE sofa",                               ar:"كنبة لولو لاروتون",                                        status:"ready to ship",             date:null,         responsible:"Paulo",      notes:"Paulo" },
+  { id:16, area:"Main majles",    task:"DOOQ sofa",                                        ar:"كنبة دوك",                                                 status:"In Progress",               date:"30-4-26",    responsible:"RCC Team",   notes:"Extra trim ordered" },
+  { id:17, area:"Main majles",    task:"DUDGEON sofa",                                     ar:"كنبة دادجون",                                              status:"Completed/Pending Payment", date:"15-05-2026", responsible:"RCC Team",   notes:"Waiting transfer confirmation" },
+  { id:18, area:"Main majles",    task:"PACIFIC sofa",                                     ar:"كنبة باسيفيك",                                             status:"Delivered",                 date:null,         responsible:"Owner",      notes:"Owner to approve fabric" },
+  { id:19, area:"Main majles",    task:"SCOUT benches",                                    ar:"مقاعد سكاوت",                                              status:"order sent",                date:null,         responsible:"RCC Team",   notes:"Waiting for quotation" },
+  { id:20, area:"Main majles",    task:"SCOUT benches – fabric",                           ar:"مقاعد سكاوت — القماش",                                     status:"order sent",                date:null,         responsible:"RCC Team",   notes:"Waiting for quotation" },
+  { id:21, area:"Main majles",    task:"L.Z wall light",                                   ar:"إضاءة جدار L.Z",                                           status:"in shipping",               date:"15-5-2026",  responsible:"Paulo",      notes:"Paulo" },
+  { id:22, area:"Main majles",    task:"Old convertible sofa",                             ar:"الكنبة القديمة القابلة للتحويل",                           status:"In Progress",               date:"15-5-2026",  responsible:"RCC Team",   notes:"" },
+  { id:23, area:"Dining Room",    task:"Dining table with brass addition",                 ar:"طاولة الطعام مع إضافة النحاسية",                           status:"In Progress",               date:"30-4-2026",  responsible:"Contractor", notes:"" },
+  { id:24, area:"Dining Room",    task:"Buffet",                                           ar:"البوفيه",                                                  status:"In Progress",               date:"30-5-2026",  responsible:"Contractor", notes:"" },
+  { id:25, area:"Dining Room",    task:"Wall artworks – dishes",                           ar:"الأعمال الفنية الجدارية — الأطباق",                        status:"In Progress",               date:"30-5-2026",  responsible:"RCC Team",   notes:"" },
+  { id:26, area:"Dining Room",    task:"Chair upholstery – seat",                          ar:"تنجيد الكرسي — المقعد",                                    status:"In Progress",               date:null,         responsible:"RCC Team",   notes:"Waiting fabric" },
+  { id:27, area:"Dining Room",    task:"Chair upholstery – back",                          ar:"تنجيد الكرسي — الظهر",                                     status:"Pending",                   date:null,         responsible:"RCC Team",   notes:"Waiting for fabric selection" },
+  { id:28, area:"Dining Room",    task:"Curtains",                                         ar:"الستائر",                                                  status:"In Progress",               date:"15-05-2026", responsible:"Contractor", notes:"Fabric arriving end of month + 15 days install" },
+  { id:29, area:"Dining Room",    task:"Partition",                                        ar:"الفاصل",                                                   status:"In Progress",               date:"15-5-26",    responsible:"Contractor", notes:"" },
+];
+
+const SECTIONS = ["All","Main Entrance","Washbasin Area","Main majles","Dining Room"];
+
+// ─── Filter state ──────────────────────────────────────────────────────────
+let activeSection     = "All";
+let activeResponsible = "All";
+
+function getResponsibles() {
+  const seen = new Set();
+  RAW.forEach(t => { if (t.responsible) seen.add(t.responsible); });
+  return ["All", ...Array.from(seen).sort()];
+}
+
+function dispDate(raw) {
+  const m = String(raw || "").match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if (!m) return raw || "";
+  const mos = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${m[1]} ${mos[parseInt(m[2])]}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UPLOAD & COMPARE FEATURE
+// ═══════════════════════════════════════════════════════════════════════════
+let pendingDiff = null;
+
+function openFilePicker() {
+  const inp = document.createElement("input");
+  inp.type    = "file";
+  inp.accept  = ".xlsx,.xls";
+  inp.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const wb   = XLSX.read(ev.target.result, { type:"array" });
+        const ws   = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval:"" });
+        runDiff(rows);
+      } catch (err) {
+        alert("Could not parse Excel file:\n" + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  inp.click();
+}
+
+function normalizeUploadRow(r) {
+  // Accept flexible column names from Excel
+  const g = (keys) => {
+    for (const k of keys) { if (r[k] !== undefined && r[k] !== "") return String(r[k]).trim(); }
+    return "";
+  };
+  return {
+    id:          parseInt(g(["id","ID","Id","رقم"]) || "0"),
+    area:        g(["area","Area","AREA","section","Section","القسم","المنطقة"]),
+    task:        g(["task","Task","TASK","desc","Desc","description","Description","المهمة"]),
+    ar:          g(["ar","AR","arabic","Arabic","وصف عربي"]),
+    status:      g(["status","Status","STATUS","الحالة"]),
+    responsible: g(["responsible","Responsible","RESPONSIBLE","person","Person","المسؤول"]),
+    date:        g(["date","Date","DATE","due_date","DueDate","التاريخ"]),
+    notes:       g(["notes","Notes","NOTES","ملاحظات"]),
+  };
+}
+
+function runDiff(uploadedRows) {
+  const uploaded    = uploadedRows.map(normalizeUploadRow).filter(r => r.id > 0);
+  const uploadedMap = new Map(uploaded.map(r => [r.id, r]));
+  const currentMap  = new Map(RAW.map(r => [r.id, r]));
+
+  const added    = [];
+  const modified = [];
+  const flagged  = [];
+
+  for (const [id, uRow] of uploadedMap) {
+    const cur = currentMap.get(id);
+    if (!cur) {
+      added.push(uRow);
+    } else {
+      const changes = [];
+      for (const f of ["area","task","ar","status","responsible","date","notes"]) {
+        const was = String(cur[f] || "").trim();
+        const now = String(uRow[f] || "").trim();
+        if (was !== now) changes.push({ field:f, from:cur[f], to:uRow[f] });
+      }
+      if (changes.length) modified.push({ id, task:cur.task, changes });
+    }
+  }
+
+  for (const [id, cur] of currentMap) {
+    if (!uploadedMap.has(id)) flagged.push(cur);
+  }
+
+  pendingDiff = { added, modified, flagged, uploaded };
+  showDiffModal();
+}
+
+// ─── Diff Modal ────────────────────────────────────────────────────────────
+function showDiffModal() {
+  const { added, modified, flagged } = pendingDiff;
+  const noChanges = !added.length && !modified.length && !flagged.length;
+
+  const pill = (txt, bg, fg) =>
+    `<span style="font-size:8.5px;padding:2px 8px;border-radius:10px;background:${bg};color:${fg};font-weight:600;white-space:nowrap;letter-spacing:0.05em">${txt}</span>`;
+
+  const addedHTML = added.length === 0 ? "" : `
+    <div class="diff-block">
+      <div class="diff-hdr" style="background:#dcfce7;color:#15803d">🟢 ADDED &nbsp;— ${added.length} NEW ITEM${added.length>1?"S":""}</div>
+      ${added.map(r => `
+        <div class="diff-row" style="background:#f0fdf4;border:1px solid #bbf7d0">
+          <span style="font-size:10px;color:#9a8a70;min-width:32px;padding-top:1px">#${r.id}</span>
+          <div style="flex:1;overflow:hidden">
+            <div style="font-size:11.5px;font-weight:500;color:#1c1712">${r.task || "—"}</div>
+            ${r.ar ? `<div style="font-size:10px;color:#6b5f4a;direction:rtl;text-align:right;margin-top:2px">${r.ar}</div>` : ""}
+            <div style="font-size:9.5px;color:#6b5f4a;margin-top:3px">${r.area} &nbsp;·&nbsp; ${r.status} &nbsp;·&nbsp; ${r.responsible||"—"} &nbsp;·&nbsp; ${r.date||"DATE TBD"}</div>
+          </div>
+        </div>`).join("")}
+    </div>`;
+
+  const modHTML = modified.length === 0 ? "" : `
+    <div class="diff-block">
+      <div class="diff-hdr" style="background:#fef9c3;color:#a16207">🟡 MODIFIED &nbsp;— ${modified.length} ITEM${modified.length>1?"S":""} CHANGED</div>
+      ${modified.map(m => `
+        <div class="diff-row" style="background:#fefce8;border:1px solid #fde68a;flex-direction:column">
+          <div style="font-size:11.5px;font-weight:500;color:#1c1712;margin-bottom:6px">#${m.id} &nbsp; ${m.task}</div>
+          ${m.changes.map(c => `
+            <div style="display:flex;gap:8px;align-items:center;font-size:10px;padding:2px 0;border-top:1px solid #fde68a40">
+              <span style="min-width:78px;color:#9a8a70;font-weight:500;letter-spacing:0.06em">${c.field.toUpperCase()}</span>
+              <span style="color:#c0392b;text-decoration:line-through;opacity:0.75">${c.from||"(empty)"}</span>
+              <span style="color:#a09080">→</span>
+              <span style="color:#15803d;font-weight:500">${c.to||"(empty)"}</span>
+            </div>`).join("")}
+        </div>`).join("")}
+    </div>`;
+
+  const flagHTML = flagged.length === 0 ? "" : `
+    <div class="diff-block">
+      <div class="diff-hdr" style="background:#fee2e2;color:#b91c1c">🔴 FLAGGED &nbsp;— ${flagged.length} ITEM${flagged.length>1?"S":""} NOT IN UPLOAD (KEPT — NEVER DELETED)</div>
+      ${flagged.map(r => `
+        <div class="diff-row" style="background:#fff5f5;border:1px solid #fecaca;align-items:center">
+          <span style="font-size:10px;color:#9a8a70;min-width:32px">#${r.id}</span>
+          <div style="flex:1;overflow:hidden">
+            <div style="font-size:11.5px;font-weight:500;color:#1c1712">${r.task}</div>
+            <div style="font-size:9.5px;color:#6b5f4a;margin-top:3px">${r.area} &nbsp;·&nbsp; ${r.status}</div>
+          </div>
+          ${pill("KEPT — NOT DELETED","#fee2e2","#b91c1c")}
+        </div>`).join("")}
+    </div>`;
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.id = "diffModal";
+  overlay.innerHTML = `
+    <div class="modal-box">
+
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:600;color:#e8c870;letter-spacing:0.08em">UPLOAD COMPARISON REPORT</div>
+          <div style="font-size:9.5px;color:#8a7a5a;letter-spacing:0.14em;margin-top:4px">VILLA 2 &nbsp;·&nbsp; PUNCH LIST TRACKER &nbsp;·&nbsp; RCC DESIGN &amp; SUPERVISION</div>
+        </div>
+        <button class="btn-close" onclick="closeDiffModal()">✕</button>
+      </div>
+
+      <!-- Summary strip -->
+      <div style="display:flex;gap:0;background:#1c1712;flex-shrink:0">
+        <div style="flex:1;padding:10px 18px;border-right:1px solid #2a2016">
+          <div style="font-size:8.5px;letter-spacing:0.14em;color:#6a5a3a;margin-bottom:3px">ADDED</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#16a34a">${added.length}</div>
+        </div>
+        <div style="flex:1;padding:10px 18px;border-right:1px solid #2a2016">
+          <div style="font-size:8.5px;letter-spacing:0.14em;color:#6a5a3a;margin-bottom:3px">MODIFIED</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#e8c870">${modified.length}</div>
+        </div>
+        <div style="flex:1;padding:10px 18px">
+          <div style="font-size:8.5px;letter-spacing:0.14em;color:#6a5a3a;margin-bottom:3px">FLAGGED (NOT DELETED)</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#c0392b">${flagged.length}</div>
+        </div>
+      </div>
+
+      <!-- Diff body -->
+      <div class="modal-body">
+        ${noChanges
+          ? `<div style="text-align:center;padding:50px 20px;color:#6b5f4a">
+               <div style="font-size:32px;margin-bottom:12px">✅</div>
+               <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#1c1712;margin-bottom:6px">No Differences Detected</div>
+               <div style="font-size:11px;color:#a09080">The uploaded file matches the current dashboard data exactly.</div>
+             </div>`
+          : addedHTML + modHTML + flagHTML}
+      </div>
+
+      <!-- Footer actions -->
+      <div class="modal-footer">
+        <button class="btn-outline" onclick="closeDiffModal()">CANCEL</button>
+        ${!noChanges ? `<button class="btn-outline" onclick="exportReport()">EXPORT REPORT</button>` : ""}
+        ${(added.length > 0 || modified.length > 0)
+          ? `<button class="btn-gold" onclick="applyChanges()">APPLY CHANGES</button>`
+          : ""}
+      </div>
+    </div>`;
+
+  // Close on overlay click
+  overlay.addEventListener("click", e => { if (e.target === overlay) closeDiffModal(); });
+  document.body.appendChild(overlay);
+}
+
+function closeDiffModal() {
+  const m = document.getElementById("diffModal");
+  if (m) { m.style.opacity = "0"; m.style.transition = "opacity 0.15s"; setTimeout(() => m.remove(), 150); }
+}
+
+// ─── Apply Changes — live re-render, no page reload ────────────────────────
+function applyChanges() {
+  if (!pendingDiff) return;
+  const { added, modified } = pendingDiff;
+  const map = new Map(RAW.map(r => [r.id, r]));
+  for (const m of modified) {
+    const cur = map.get(m.id);
+    if (cur) { for (const c of m.changes) cur[c.field] = c.to; }
+  }
+  for (const a of added) {
+    if (!map.has(a.id)) RAW.push(a);
+  }
+  pendingDiff = null;
+  closeDiffModal();
+  render();
+}
+
+// ─── Export Report ─────────────────────────────────────────────────────────
+function exportReport() {
+  if (!pendingDiff) return;
+  const { added, modified, flagged } = pendingDiff;
+  const now = new Date().toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric" });
+
+  const win = window.open("", "_blank");
+  if (!win) { alert("Please allow popups to open the export report."); return; }
+
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>Villa 2 — Upload Comparison Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Jost',system-ui,sans-serif;background:#fff;color:#1c1712;padding:44px 48px;font-size:11px;line-height:1.5}
+  h1{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;letter-spacing:0.08em;color:#1c1712;margin-bottom:6px}
+  h2{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:#1c1712;margin:30px 0 10px;letter-spacing:0.05em;border-bottom:1px solid #ede8df;padding-bottom:6px}
+  .meta{font-size:9.5px;color:#a09080;letter-spacing:0.12em;margin-bottom:36px}
+  .summary{display:flex;gap:0;margin-bottom:30px;border:1px solid #ede8df;border-radius:8px;overflow:hidden}
+  .sum-cell{flex:1;padding:14px 20px;border-right:1px solid #ede8df}
+  .sum-cell:last-child{border-right:none}
+  .sum-lbl{font-size:9px;letter-spacing:0.14em;color:#a09080;margin-bottom:4px}
+  .sum-val{font-family:'Cormorant Garamond',serif;font-size:28px}
+  .drow{padding:9px 0;border-bottom:1px solid #f0ebe2;display:flex;gap:12px;align-items:flex-start}
+  .drow:last-child{border-bottom:none}
+  .did{min-width:36px;font-size:10px;color:#a09080;font-weight:500;padding-top:2px}
+  .fch{display:flex;gap:8px;align-items:center;font-size:10px;margin-top:3px;padding:2px 0;border-top:1px solid #ede8df40}
+  .del{color:#c0392b;text-decoration:line-through;opacity:0.7}
+  .ins{color:#15803d;font-weight:500}
+  .sign-tbl{width:100%;border-collapse:collapse;margin-top:16px}
+  .sign-tbl td{border:1px solid #ddd5c8;padding:14px 18px;vertical-align:top}
+  .slbl{font-size:8.5px;letter-spacing:0.14em;color:#a09080;display:block;margin-bottom:6px}
+  .sline{height:1px;background:#ddd5c8;margin-top:28px}
+  .report-footer{margin-top:44px;padding-top:14px;border-top:1px solid #ede8df;display:flex;justify-content:space-between;font-size:9px;color:#c8bfae;letter-spacing:0.12em}
+  @page{margin:18mm 22mm}
+  @media print{body{padding:0}}
+</style>
+</head>
+<body>
+
+<h1>VILLA 2 — UPLOAD COMPARISON REPORT</h1>
+<div class="meta">RCC — DESIGN &amp; SUPERVISION DIVISION &nbsp;·&nbsp; GENERATED: ${now.toUpperCase()} &nbsp;·&nbsp; CONFIDENTIAL</div>
+
+<div class="summary">
+  <div class="sum-cell"><div class="sum-lbl">ADDED ITEMS</div><div class="sum-val" style="color:#16a34a">${added.length}</div></div>
+  <div class="sum-cell"><div class="sum-lbl">MODIFIED ITEMS</div><div class="sum-val" style="color:#a16207">${modified.length}</div></div>
+  <div class="sum-cell"><div class="sum-lbl">FLAGGED (KEPT — NOT DELETED)</div><div class="sum-val" style="color:#b91c1c">${flagged.length}</div></div>
+</div>
+
+${added.length ? `
+<h2>🟢 Added Items</h2>
+${added.map(r => `
+  <div class="drow">
+    <div class="did">#${r.id}</div>
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:500">${r.task||"—"}</div>
+      ${r.ar ? `<div style="direction:rtl;text-align:right;color:#6b5f4a;font-size:10px;margin-top:2px">${r.ar}</div>` : ""}
+      <div style="font-size:9.5px;color:#8a7a60;margin-top:3px">${r.area} &nbsp;·&nbsp; ${r.status} &nbsp;·&nbsp; ${r.responsible||"—"} &nbsp;·&nbsp; ${r.date||"DATE TBD"}</div>
+    </div>
+  </div>`).join("")}` : ""}
+
+${modified.length ? `
+<h2>🟡 Modified Items</h2>
+${modified.map(m => `
+  <div class="drow" style="flex-direction:column">
+    <div style="font-size:12px;font-weight:500;margin-bottom:6px">#${m.id} &nbsp; ${m.task}</div>
+    ${m.changes.map(c => `
+      <div class="fch">
+        <span style="min-width:80px;color:#a09080;font-weight:500;letter-spacing:0.06em">${c.field.toUpperCase()}</span>
+        <span class="del">${c.from||"(empty)"}</span>
+        <span style="color:#a09080">→</span>
+        <span class="ins">${c.to||"(empty)"}</span>
+      </div>`).join("")}
+  </div>`).join("")}` : ""}
+
+${flagged.length ? `
+<h2>🔴 Flagged Items &nbsp;<span style="font-size:11px;font-weight:400;color:#a09080">(Present in dashboard — not found in upload — KEPT, never deleted)</span></h2>
+${flagged.map(r => `
+  <div class="drow">
+    <div class="did">#${r.id}</div>
+    <div style="flex:1">
+      <div style="font-size:12px;font-weight:500">${r.task}</div>
+      <div style="font-size:9.5px;color:#8a7a60;margin-top:3px">${r.area} &nbsp;·&nbsp; ${r.status} &nbsp;·&nbsp; ${r.responsible||"—"}</div>
+    </div>
+  </div>`).join("")}` : ""}
+
+<h2 style="margin-top:44px">Sign-Off</h2>
+<table class="sign-tbl">
+  <tr>
+    <td style="width:33%"><span class="slbl">PREPARED BY</span><br><br><br><div class="sline"></div></td>
+    <td style="width:33%"><span class="slbl">REVIEWED BY</span><br><br><br><div class="sline"></div></td>
+    <td style="width:33%"><span class="slbl">APPROVED BY</span><br><br><br><div class="sline"></div></td>
+  </tr>
+  <tr>
+    <td><span class="slbl">NAME &amp; TITLE</span><br></td>
+    <td><span class="slbl">NAME &amp; TITLE</span><br></td>
+    <td><span class="slbl">NAME &amp; TITLE</span><br></td>
+  </tr>
+  <tr>
+    <td><span class="slbl">DATE</span><br></td>
+    <td><span class="slbl">DATE</span><br></td>
+    <td><span class="slbl">DATE</span><br></td>
+  </tr>
+</table>
+
+<div class="report-footer">
+  <span>RCC — DESIGN &amp; SUPERVISION DIVISION</span>
+  <span>VILLA 2 PUNCH LIST TRACKER · R04 · CONFIDENTIAL</span>
+  <span dir="rtl" style="font-family:Arial,sans-serif;letter-spacing:0">شعبة التصميم والإشراف — RCC</span>
+</div>
+
+</body>
+</html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 700);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════════════════════
+function render() {
+  const responsibles = getResponsibles();
+
+  // KPI counts always from full RAW (not filtered)
+  const total     = RAW.length;
+  const doneList  = RAW.filter(t => getCfg(t.status).group === "done");
+  const actList   = RAW.filter(t => getCfg(t.status).group === "active");
+  const pendList  = RAW.filter(t => getCfg(t.status).group === "pending");
+  const pct       = total ? Math.round(doneList.length / total * 100) : 0;
+
+  const areaStats = Object.keys(AREA_COLORS).map(a => {
+    const g = RAW.filter(t => t.area === a);
+    const d = g.filter(t => getCfg(t.status).group === "done").length;
+    return { a, total:g.length, done:d, pct:g.length ? Math.round(d/g.length*100) : 0, color:AREA_COLORS[a] };
+  });
+
+  // Apply stacked filters
+  let filtered = RAW;
+  if (activeSection     !== "All") filtered = filtered.filter(t => t.area        === activeSection);
+  if (activeResponsible !== "All") filtered = filtered.filter(t => t.responsible === activeResponsible);
+
+  const withDate = [...filtered].filter(t => t.date).sort((a,b) => toOff(a.date) - toOff(b.date));
+  const noDate   = filtered.filter(t => !t.date);
+  const LW       = 310;
+
+  // ── Section filter tabs (gold) ───────────────────────────────────────────
+  const tabsHTML = SECTIONS.map(s => {
+    const active = s === activeSection;
+    const color  = s === "All" ? "#b8953a" : AREA_COLORS[s] || "#b8953a";
+    return `<button class="stab" data-type="sec" data-val="${s}" style="
+      padding:5px 16px;font-size:10px;letter-spacing:0.1em;font-weight:500;
+      background:${active ? color : "#fff"};color:${active ? "#fff" : "#8a7a60"};
+      border:1px solid ${active ? color : "#ddd5c8"};border-radius:20px;">${s.toUpperCase()}</button>`;
+  }).join("");
+
+  // ── Responsible filter tabs (teal) ───────────────────────────────────────
+  const respHTML = responsibles.map(r => {
+    const active = r === activeResponsible;
+    return `<button class="stab" data-type="resp" data-val="${r}" style="
+      padding:5px 16px;font-size:10px;letter-spacing:0.1em;font-weight:500;
+      background:${active ? "#0e7490" : "#fff"};color:${active ? "#fff" : "#0e7490"};
+      border:1px solid ${active ? "#0e7490" : "#a5d8e0"};border-radius:20px;">${r.toUpperCase()}</button>`;
+  }).join("");
+
+  // ── Area progress bars ───────────────────────────────────────────────────
+  const spHTML = areaStats.map(({a,total:t,done:d,pct:p,color}) => `
+    <div style="flex:1 1 130px;min-width:110px">
+      <div style="display:flex;justify-content:space-between;font-size:9.5px;margin-bottom:5px">
+        <span style="color:#6b5f4a;font-weight:500">${a}</span>
+        <span style="color:${color};font-weight:600">${p}%</span>
+      </div>
+      <div style="height:4px;background:#e8e0d0;border-radius:2px">
+        <div style="width:${p}%;height:100%;background:${color};border-radius:2px;transition:width 0.4s"></div>
+      </div>
+      <div style="font-size:9px;color:#a09080;margin-top:3px">${d} of ${t} done</div>
+    </div>`).join("");
+
+  // ── Month / week header ──────────────────────────────────────────────────
+  const monthH = MONTHS.map(({label,start,days}) =>
+    `<div style="position:absolute;left:${start/DAYS*100}%;width:${days/DAYS*100}%;height:100%;border-left:1px solid #ddd5c8;display:flex;align-items:center;padding-left:12px;font-size:9.5px;letter-spacing:0.14em;color:#b8953a;font-weight:600">${label}</div>`
+  ).join("");
+  const weekTicks = WEEKS.filter(w => w < DAYS).map(w =>
+    `<div style="position:absolute;left:${w/DAYS*100}%;bottom:0;height:6px;width:1px;background:#ddd5c8"></div>`
+  ).join("");
+  const todayPct = TODAY_OFF / DAYS * 100;
+
+  // ── Gantt row builder ────────────────────────────────────────────────────
+  function buildRow(task, i, isNoDate) {
+    const cfg    = getCfg(task.status);
+    const sColor = AREA_COLORS[task.area] || "#b8953a";
+    const isDone = cfg.group === "done";
+    const bg     = isNoDate
+      ? (i%2===0 ? "#faf7f2" : "#f5f2ec")
+      : (i%2===0 ? "#ffffff" : "#faf7f2");
+
+    const mDivs = MONTHS.map(({start}) =>
+      `<div style="position:absolute;left:${start/DAYS*100}%;top:0;bottom:0;width:1px;background:#ede8df"></div>`).join("");
+    const wDivs = WEEKS.filter(w=>w<DAYS).map(w =>
+      `<div style="position:absolute;left:${w/DAYS*100}%;top:0;bottom:0;width:1px;background:#f2ede6"></div>`).join("");
+
+    const labelCell = `
+      <div style="width:${LW}px;min-width:${LW}px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #ede8df;overflow:hidden">
+        <span style="width:3px;height:22px;background:${sColor};border-radius:2px;flex-shrink:0;opacity:${isDone?1:0.65}"></span>
+        <div style="flex:1;overflow:hidden">
+          <div style="font-size:11px;font-weight:400;color:#1c1712;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${task.task}">${task.task}</div>
+          ${task.ar
+            ? `<div style="font-size:8.5px;color:#a09080;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:right;font-family:Arial,sans-serif" title="${task.ar}">${task.ar}</div>`
+            : ""}
+          ${task.notes
+            ? `<div style="font-size:9px;color:#c8bfae;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic">${task.notes}</div>`
+            : (!task.ar ? `<div style="font-size:9px;color:#c8bfae;margin-top:1px">${task.area}</div>` : "")}
+        </div>
+        <span style="flex-shrink:0;font-size:9px;padding:2px 8px;border-radius:10px;background:${cfg.color}15;color:${cfg.color};border:1px solid ${cfg.color}44;white-space:nowrap;letter-spacing:0.03em;font-weight:500">${cfg.label}</span>
+      </div>`;
+
+    if (isNoDate) {
+      return `
+      <div class="tr" style="display:flex;height:54px;border-bottom:1px solid #ede8df;background:${bg}">
+        ${labelCell}
+        <div style="flex:1;display:flex;align-items:center;padding-left:16px;gap:10px;background:${bg}">
+          <span style="font-size:9px;letter-spacing:0.1em;color:#a09080;border:1px solid #ddd5c8;border-radius:12px;padding:2px 10px;background:#fff;white-space:nowrap">DATE TBD</span>
+          ${task.responsible ? `<span style="font-size:9px;color:#0e7490;border:1px solid #a5d8e055;border-radius:12px;padding:2px 10px;background:#f0f9ff;white-space:nowrap">${task.responsible}</span>` : ""}
+          <span style="font-size:9px;color:${sColor}88">${task.area}</span>
+        </div>
+      </div>`;
+    }
+
+    const off    = toOff(task.date);
+    const bEnd   = off;
+    const bStart = Math.max(0, bEnd - 5);
+    const lPct   = bStart / DAYS * 100;
+    const wPct   = Math.max((bEnd - bStart + 1) / DAYS * 100, 0.8);
+    const barBg  = isDone
+      ? `background:linear-gradient(90deg,${cfg.color}cc,${cfg.color});box-shadow:0 1px 6px ${cfg.color}44;`
+      : `background:linear-gradient(90deg,${cfg.color}55,${cfg.color}88);border:1px solid ${cfg.color}88;`;
+
+    return `
+    <div class="tr" style="display:flex;height:54px;border-bottom:1px solid #ede8df;background:${bg};position:relative">
+      ${labelCell}
+      <div style="flex:1;position:relative;background:${bg}">
+        ${mDivs}${wDivs}
+        <!-- TODAY line per row -->
+        <div style="position:absolute;left:${todayPct}%;top:0;bottom:0;width:2px;background:${isDone?"rgba(192,57,43,0.18)":"rgba(192,57,43,0.50)"};z-index:3"></div>
+        <!-- Gantt bar -->
+        <div style="position:absolute;left:${lPct}%;width:${wPct}%;top:50%;transform:translateY(-50%);height:${isDone?14:11}px;border-radius:4px;z-index:2;${barBg}"></div>
+        <!-- Hover tooltip -->
+        <div class="tooltip">
+          <span style="font-size:9.5px;color:${sColor};background:#fff;padding:2px 8px;border-radius:4px;border:1px solid ${sColor}44;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">${task.area}</span>
+          ${task.responsible ? `<span style="font-size:9.5px;color:#0e7490;background:#fff;padding:2px 8px;border-radius:4px;border:1px solid #a5d8e055;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">${task.responsible}</span>` : ""}
+          <span style="font-size:9.5px;color:${cfg.color};background:#fff;padding:2px 8px;border-radius:4px;border:1px solid ${cfg.color}44;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ ${dispDate(task.date)}</span>
+          ${task.notes ? `<span style="font-size:9.5px;color:#6b5f4a;background:#fff;padding:2px 8px;border-radius:4px;border:1px solid #ddd5c8;box-shadow:0 1px 4px rgba(0,0,0,0.08);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${task.notes}</span>` : ""}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const rowsHTML   = withDate.map((t,i) => buildRow(t,i,false)).join("");
+  const noDateHTML = noDate.length === 0 ? "" : `
+    <div style="padding:9px 16px;background:#f0ebe2;border-top:1px solid #ddd5c8;border-bottom:1px solid #ddd5c8;font-size:9px;letter-spacing:0.18em;color:#a09080">
+      DATE TBD — ${noDate.length} ITEM${noDate.length !== 1 ? "S" : ""}
+    </div>
+    ${noDate.map((t,i) => buildRow(t,i,true)).join("")}`;
+
+  // ── Legend ───────────────────────────────────────────────────────────────
+  const legendHTML = LEGEND_ALL.map(([c,l]) =>
+    `<div style="display:flex;align-items:center;gap:5px;white-space:nowrap">
+      <div style="width:16px;height:7px;background:${c};border-radius:3px;opacity:0.85"></div>
+      <span style="font-size:9.5px;color:#8a7a60">${l}</span>
+    </div>`
+  ).join("");
+
+  // ── Inject into DOM ──────────────────────────────────────────────────────
+  document.getElementById("root").innerHTML = `
+  <div style="font-family:'Jost',system-ui,sans-serif;background:#f5f2ec;min-height:100vh;color:#1c1712">
+
+    <!-- HEADER -->
+    <div style="background:linear-gradient(135deg,#1c1712 0%,#2a2016 100%);padding:22px 32px 18px;flex-shrink:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:20px">
+        <div style="min-width:0">
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:600;letter-spacing:0.08em;color:#e8c870;white-space:nowrap">VILLA 2 — PUNCH LIST TRACKER</div>
+          <div style="font-size:11px;color:#8a7a5a;letter-spacing:0.14em;margin-top:5px">
+            R04 &nbsp;·&nbsp; ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}).toUpperCase()} &nbsp;·&nbsp; RCC – DESIGN &amp; SUPERVISION
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
+          <button id="uploadBtn" style="
+            cursor:pointer;padding:9px 22px;border-radius:20px;
+            border:1.5px solid #b8953a;background:transparent;
+            color:#b8953a;font-family:'Jost',sans-serif;font-size:10px;
+            letter-spacing:0.14em;font-weight:500;transition:all 0.2s;white-space:nowrap"
+            onmouseover="this.style.background='#b8953a';this.style.color='#fff'"
+            onmouseout="this.style.background='transparent';this.style.color='#b8953a'">
+            UPLOAD UPDATE
+          </button>
+          <div style="text-align:right">
+            <div style="font-size:10px;color:#6a5a3a;letter-spacing:0.12em">PROJECT</div>
+            <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;color:#b8953a;letter-spacing:0.08em">VILLA 2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div style="display:flex;gap:10px;padding:16px 32px;background:#fff;border-bottom:1px solid #ede8df;box-shadow:0 1px 4px rgba(0,0,0,0.04)">
+      ${[
+        { label:"TOTAL ITEMS",  val:total,           color:"#b8953a" },
+        { label:"COMPLETED",    val:doneList.length, color:"#16a34a" },
+        { label:"IN PROGRESS",  val:actList.length,  color:"#b45309" },
+        { label:"PENDING",      val:pendList.length, color:"#c0392b" },
+      ].map(c => `
+        <div style="flex:1;background:#faf7f2;border:1px solid ${c.color}28;border-radius:8px;padding:14px 18px">
+          <div style="font-size:9px;letter-spacing:0.16em;color:#a09080;margin-bottom:6px">${c.label}</div>
+          <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;font-weight:600;color:${c.color}">${c.val}</div>
+        </div>`).join("")}
+      <div style="flex:1.6;background:#faf7f2;border:1px solid #b8953a28;border-radius:8px;padding:14px 18px">
+        <div style="font-size:9px;letter-spacing:0.16em;color:#a09080;margin-bottom:6px">OVERALL COMPLETION</div>
+        <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;font-weight:600;color:#b8953a">${pct}%</div>
+        <div style="margin-top:8px;height:4px;background:#e8e0d0;border-radius:2px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#b8953a,#ddb96a);border-radius:2px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AREA PROGRESS BARS -->
+    <div style="padding:14px 32px;background:#fff;border-bottom:1px solid #ede8df">
+      <div style="font-size:9px;letter-spacing:0.18em;color:#b8b0a0;margin-bottom:10px">PROGRESS BY AREA</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">${spHTML}</div>
+    </div>
+
+    <!-- SECTION FILTER TABS (gold) -->
+    <div style="padding:10px 32px 8px;background:#fff;border-bottom:1px solid #f0ebe2">
+      <div style="font-size:9px;letter-spacing:0.16em;color:#b8b0a0;margin-bottom:7px">FILTER BY SECTION</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${tabsHTML}</div>
+    </div>
+
+    <!-- RESPONSIBLE FILTER TABS (teal) -->
+    <div style="padding:8px 32px 10px;background:#fff;border-bottom:1px solid #ede8df">
+      <div style="font-size:9px;letter-spacing:0.16em;color:#b8b0a0;margin-bottom:7px">FILTER BY RESPONSIBLE PERSON</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${respHTML}</div>
+    </div>
+
+    <!-- LEGEND + TODAY indicator -->
+    <div style="padding:9px 32px;background:#fff;border-bottom:2px solid #ede8df">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        ${legendHTML}
+        <div style="display:flex;align-items:center;gap:5px;margin-left:6px;padding-left:12px;border-left:1px solid #ede8df;white-space:nowrap">
+          <div style="width:2px;height:14px;background:#c0392b;opacity:0.65;border-radius:1px"></div>
+          <span style="font-size:9.5px;color:#8a7a60">Today (${TODAY_LABEL})</span>
+        </div>
+        ${(activeSection !== "All" || activeResponsible !== "All") ? `
+        <div style="margin-left:auto;font-size:9.5px;color:#6b5f4a;background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:2px 10px;white-space:nowrap">
+          Showing ${filtered.length} of ${total} items
+        </div>` : ""}
+      </div>
+    </div>
+
+    <!-- GANTT CHART -->
+    <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 430px)">
+      <div style="min-width:880px">
+
+        <!-- Sticky column header -->
+        <div style="display:flex;position:sticky;top:0;z-index:10;background:#f0ebe2;border-bottom:2px solid #ddd5c8;height:46px;box-shadow:0 2px 6px rgba(0,0,0,0.06)">
+          <div style="width:${LW}px;min-width:${LW}px;padding:0 16px;display:flex;align-items:center;font-size:9px;letter-spacing:0.16em;color:#b8b0a0;border-right:1px solid #ddd5c8;font-weight:500">
+            TASK &nbsp;&amp;&nbsp; NOTES
+          </div>
+          <div style="flex:1;position:relative">
+            ${monthH}${weekTicks}
+            <!-- Dynamic TODAY marker in header -->
+            <div style="position:absolute;left:${todayPct}%;top:0;bottom:0;width:2px;background:rgba(192,57,43,0.6);z-index:5">
+              <div style="position:absolute;top:5px;left:4px;font-size:8.5px;color:#c0392b;letter-spacing:0.1em;font-weight:600;white-space:nowrap">${TODAY_LABEL}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dated task rows -->
+        ${rowsHTML}
+
+        <!-- DATE TBD zone -->
+        ${noDateHTML}
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="padding:12px 32px;background:#fff;border-top:1px solid #ede8df;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:9px;color:#c8bfae;letter-spacing:0.12em">RCC — DESIGN &amp; SUPERVISION DIVISION</span>
+      <span style="font-size:9px;color:#c8bfae;letter-spacing:0.12em">VILLA 2 PUNCH LIST TRACKER &nbsp;·&nbsp; R04 &nbsp;·&nbsp; CONFIDENTIAL</span>
+      <span style="font-size:9px;color:#c8bfae;letter-spacing:0.08em;direction:rtl;font-family:Arial,sans-serif">شعبة التصميم والإشراف — VILLA 2</span>
+    </div>
+
+  </div>`;
+
+  // ── Wire up event listeners after DOM update ─────────────────────────────
+  document.querySelectorAll(".stab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.type === "sec")  activeSection     = btn.dataset.val;
+      else                             activeResponsible = btn.dataset.val;
+      render();
+    });
+  });
+
+  document.getElementById("uploadBtn").addEventListener("click", openFilePicker);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
