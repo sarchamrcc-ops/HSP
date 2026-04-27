@@ -34,6 +34,9 @@
   .btn-outline:hover{background:#faf7f2}
   .btn-close{background:none;border:none;color:#8a7a5a;font-size:20px;line-height:1;cursor:pointer;padding:0 4px;transition:color 0.15s}
   .btn-close:hover{color:#e8c870}
+  .btn-dark{cursor:pointer;padding:8px 20px;border-radius:20px;border:none;background:#1c1712;color:#e8c870;font-family:'Jost',sans-serif;font-size:10px;letter-spacing:0.12em;font-weight:500;transition:opacity 0.2s}
+  .btn-dark:hover{opacity:0.82}
+  .btn-dark:disabled{opacity:0.38;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -339,8 +342,9 @@ function showDiffModal() {
         <button class="btn-outline" onclick="closeDiffModal()">CANCEL</button>
         ${!noChanges ? `<button class="btn-outline" onclick="exportReport()">EXPORT REPORT</button>` : ""}
         ${(added.length > 0 || modified.length > 0)
-          ? `<button class="btn-gold" onclick="applyChanges()">APPLY CHANGES</button>`
-          : ""}
+          ? `<button class="btn-gold" onclick="applyChanges()">APPLY CHANGES</button>
+             <button class="btn-dark" onclick="saveAndApply()" title="Apply diff and download updated HTML file ready for GitHub">APPLY &amp; SAVE FILE</button>`
+          : `<button class="btn-dark" disabled title="No changes to apply">APPLY &amp; SAVE FILE</button>`}
       </div>
     </div>`;
 
@@ -369,6 +373,59 @@ function applyChanges() {
   pendingDiff = null;
   closeDiffModal();
   render();
+}
+
+// ─── Apply & Save File — apply diff then download updated HTML ─────────────
+function saveAndApply() {
+  if (!pendingDiff) return;
+
+  // 1. Apply the same diff logic as applyChanges()
+  const { added, modified } = pendingDiff;
+  const map = new Map(RAW.map(r => [r.id, r]));
+  for (const m of modified) {
+    const cur = map.get(m.id);
+    if (cur) { for (const c of m.changes) cur[c.field] = c.to; }
+  }
+  for (const a of added) {
+    if (!map.has(a.id)) RAW.push(a);
+  }
+  pendingDiff = null;
+  closeDiffModal();
+  render();
+
+  // 2. Capture current page source (outerHTML does NOT include doctype)
+  let html = document.documentElement.outerHTML;
+
+  // 3. Locate `let RAW = [` and replace the full array using bracket-counting
+  //    (never regex — brackets are nested objects inside the array)
+  const marker = 'let RAW = [';
+  const markerIdx = html.indexOf(marker);
+  if (markerIdx !== -1) {
+    const bracketStart = markerIdx + marker.length - 1; // index of the opening [
+    let depth = 0;
+    let bracketEnd = bracketStart;
+    for (let i = bracketStart; i < html.length; i++) {
+      if      (html[i] === '[') depth++;
+      else if (html[i] === ']') { depth--; if (depth === 0) { bracketEnd = i; break; } }
+    }
+    const newArraySrc = JSON.stringify(RAW, null, 2);
+    html = html.slice(0, markerIdx + 'let RAW = '.length)
+         + newArraySrc
+         + html.slice(bracketEnd + 1);
+  }
+
+  // 4. Prepend doctype and trigger Blob download
+  const fullHtml = '<!DOCTYPE html>\n' + html;
+  const blob  = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+  const url   = URL.createObjectURL(blob);
+  const fname = window.location.pathname.split('/').pop() || 'Villa2_PunchList_Gantt_Light_R04.html';
+  const link  = document.createElement('a');
+  link.href     = url;
+  link.download = fname;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 // ─── Export Report ─────────────────────────────────────────────────────────
