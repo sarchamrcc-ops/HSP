@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Villa 2 — Punch List Tracker R04</title>
+<title>Villa 2 — Punch List Tracker R05</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -81,7 +81,9 @@ const SCFG = {
   "ready to ship":             { color:"#0284c7", label:"Ready to Ship",          group:"active"  },
   "in shipping":               { color:"#2563eb", label:"In Shipping",            group:"active"  },
   "Scheduled":                 { color:"#7c3aed", label:"Scheduled",             group:"active"  },
+  "samples":                   { color:"#9333ea", label:"Samples",               group:"active"  },
   "order sent":                { color:"#c2610a", label:"Order Sent",            group:"active"  },
+  "order done":                { color:"#0d9488", label:"Order Done",            group:"active"  },
   "In Progress":               { color:"#b45309", label:"In Progress",           group:"active"  },
   "Pending":                   { color:"#c0392b", label:"Pending",               group:"pending" },
   "KNX":                       { color:"#64748b", label:"KNX / On Hold",         group:"pending" },
@@ -115,34 +117,36 @@ const LEGEND_ALL = [
 //  DATA  — all original tasks preserved exactly; responsible + ar added
 // ═══════════════════════════════════════════════════════════════════════════
 let RAW = [
-  { id:1,  area:"Main Entrance",  task:"Palm & shell works + add shells around fireplace", ar:"أعمال النخيل والأصداف وإضافة أصداف حول المدفأة",          status:"In Progress",               date:"30-04-2026", responsible:"Darwin",     notes:"With Darwin working on sample" },
-  { id:2,  area:"Main Entrance",  task:"Entrance chandelier (painting stage)",             ar:"ثريا المدخل — مرحلة الطلاء",                               status:"In Progress",               date:"30-05-2026", responsible:"RCC Team",   notes:"" },
+  { id:1,  area:"Main Entrance",  task:"Palm & shell works + add shells around fireplace", ar:"أعمال النخيل والأصداف وإضافة أصداف حول المدفأة",          status:"Completed",                 date:"30-04-2026", responsible:"Darwin",     notes:"With Darwin working on sample" },
+  { id:2,  area:"Main Entrance",  task:"Entrance chandelier (painting stage)",             ar:"ثريا المدخل — مرحلة الطلاء",                               status:"In Progress",               date:"15-05-2026", responsible:"RCC Team",   notes:"Ready at 5-5 to ship" },
   { id:3,  area:"Main Entrance",  task:"Abaya room completed",                             ar:"اكتمال غرفة العباية",                                       status:"KNX",                       date:null,         responsible:"RCC Team",   notes:"Lighting – awaiting KNX" },
-  { id:4,  area:"Main Entrance",  task:"L-shape sofa upholstery",                          ar:"تنجيد الكنبة على شكل حرف L",                              status:"In Progress",               date:"20-5-2026",  responsible:"RCC Team",   notes:"After finalizing fabric with owner – needs 5 days" },
+  { id:4,  area:"Main Entrance",  task:"L-shape sofa upholstery",                          ar:"تنجيد الكنبة على شكل حرف L",                              status:"In Progress",               date:"20-5-2026",  responsible:"RCC Team",   notes:"Waiting for the fabric" },
   { id:5,  area:"Main Entrance",  task:"Floor box cancellation",                           ar:"إلغاء صندوق الأرضية",                                      status:"In Progress",               date:null,         responsible:"RCC Team",   notes:"Waiting for owner decision" },
   { id:6,  area:"Main Entrance",  task:"Bench fabric decision",                            ar:"قرار قماش المقعد",                                         status:"Pending",                   date:null,         responsible:"Owner",      notes:"Waiting for owner decision" },
   { id:7,  area:"Washbasin Area", task:"Last internal sink delivery",                      ar:"تسليم المغسلة الداخلية الأخيرة",                           status:"in shipping",               date:"20-05-2026", responsible:"Paulo",      notes:"Paulo" },
   { id:8,  area:"Washbasin Area", task:"Mirror (no lighting) by contractor",               ar:"المرآة بدون إضاءة — من قبل المقاول",                       status:"ready",                     date:"20-05-2026", responsible:"Contractor", notes:"After sink installation" },
-  { id:9,  area:"Washbasin Area", task:"Lower washbasin curtains",                         ar:"ستائر المغسلة السفلية",                                     status:"In Progress",               date:"30-4-2026",  responsible:"RCC Team",   notes:"Sample not approved" },
-  { id:10, area:"Washbasin Area", task:"Small black tiles frame",                          ar:"إطار البلاط الأسود الصغير",                                status:"In Progress",               date:"26-4-2026",  responsible:"Contractor", notes:"" },
-  { id:11, area:"Washbasin Area", task:"Toilet window curtains",                           ar:"ستائر نافذة الحمام",                                       status:"In Progress",               date:"25-4-2026",  responsible:"Contractor", notes:"Needs installation" },
-  { id:12, area:"Washbasin Area", task:"Table cover frame border",                         ar:"حدود إطار غطاء الطاولة",                                   status:"In Progress",               date:"25-05-2026", responsible:"RCC Team",   notes:"Previous order canceled – re-ordered" },
+  { id:9,  area:"Washbasin Area", task:"Lower washbasin curtains",                         ar:"ستائر المغسلة السفلية",                                     status:"ready",                     date:"05-04-2026",  responsible:"RCC Team",   notes:"Sample not approved" },
+  { id:10, area:"Washbasin Area", task:"Small black tiles frame",                          ar:"إطار البلاط الأسود الصغير",                                status:"ready",                     date:"05-04-2026",  responsible:"Contractor", notes:"" },
+  { id:11, area:"Washbasin Area", task:"Toilet window curtains",                           ar:"ستائر نافذة الحمام",                                       status:"ready",                     date:"25-4-2026",  responsible:"Contractor", notes:"We need to change the chain" },
+  { id:12, area:"Washbasin Area", task:"Table cover frame border",                         ar:"حدود إطار غطاء الطاولة",                                   status:"In Progress",               date:"25-05-2026", responsible:"RCC Team",   notes:"Waiting for the border" },
+  { id:30, area:"Washbasin Area", task:"Carpet runner",                                    ar:"سجادة ممر",                                                status:"In Progress",               date:null,         responsible:"RCC Team",   notes:"Order done – waiting for samples" },
   { id:13, area:"Main majles",    task:"Wooden works",                                     ar:"الأعمال الخشبية",                                           status:"Completed",                 date:null,         responsible:"Contractor", notes:"" },
-  { id:14, area:"Main majles",    task:"Curtain supplier meeting",                         ar:"اجتماع مورد الستائر",                                       status:"Scheduled",                 date:"22-04-2026", responsible:"RCC Team",   notes:"New fabric selection" },
+  { id:14, area:"Main majles",    task:"Curtain supplier meeting",                         ar:"اجتماع مورد الستائر",                                       status:"samples",                   date:"05-10-2026", responsible:"RCC Team",   notes:"New fabric selection" },
   { id:15, area:"Main majles",    task:"LULU LAROTUNE sofa",                               ar:"كنبة لولو لاروتون",                                        status:"ready to ship",             date:null,         responsible:"Paulo",      notes:"Paulo" },
-  { id:16, area:"Main majles",    task:"DOOQ sofa",                                        ar:"كنبة دوك",                                                 status:"In Progress",               date:"30-4-26",    responsible:"RCC Team",   notes:"Extra trim ordered" },
+  { id:16, area:"Main majles",    task:"DOOQ sofa",                                        ar:"كنبة دوك",                                                 status:"In Progress",               date:"15-5-26",    responsible:"RCC Team",   notes:"Extra trim ordered" },
   { id:17, area:"Main majles",    task:"DUDGEON sofa",                                     ar:"كنبة دادجون",                                              status:"Completed/Pending Payment", date:"15-05-2026", responsible:"RCC Team",   notes:"Waiting transfer confirmation" },
   { id:18, area:"Main majles",    task:"PACIFIC sofa",                                     ar:"كنبة باسيفيك",                                             status:"Delivered",                 date:null,         responsible:"Owner",      notes:"Owner to approve fabric" },
   { id:19, area:"Main majles",    task:"SCOUT benches",                                    ar:"مقاعد سكاوت",                                              status:"order sent",                date:null,         responsible:"RCC Team",   notes:"Waiting for quotation" },
   { id:20, area:"Main majles",    task:"SCOUT benches – fabric",                           ar:"مقاعد سكاوت — القماش",                                     status:"order sent",                date:null,         responsible:"RCC Team",   notes:"Waiting for quotation" },
   { id:21, area:"Main majles",    task:"L.Z wall light",                                   ar:"إضاءة جدار L.Z",                                           status:"in shipping",               date:"15-5-2026",  responsible:"Paulo",      notes:"Paulo" },
   { id:22, area:"Main majles",    task:"Old convertible sofa",                             ar:"الكنبة القديمة القابلة للتحويل",                           status:"In Progress",               date:"15-5-2026",  responsible:"RCC Team",   notes:"" },
-  { id:23, area:"Dining Room",    task:"Dining table with brass addition",                 ar:"طاولة الطعام مع إضافة النحاسية",                           status:"In Progress",               date:"30-4-2026",  responsible:"Contractor", notes:"" },
+  { id:23, area:"Dining Room",    task:"Dining table with brass addition",                 ar:"طاولة الطعام مع إضافة النحاسية",                           status:"In Progress",               date:"05-05-2026",  responsible:"Contractor", notes:"" },
   { id:24, area:"Dining Room",    task:"Buffet",                                           ar:"البوفيه",                                                  status:"In Progress",               date:"30-5-2026",  responsible:"Contractor", notes:"" },
-  { id:25, area:"Dining Room",    task:"Wall artworks – dishes",                           ar:"الأعمال الفنية الجدارية — الأطباق",                        status:"In Progress",               date:"30-5-2026",  responsible:"RCC Team",   notes:"" },
+  { id:25, area:"Dining Room",    task:"Wall artworks – dishes",                           ar:"الأعمال الفنية الجدارية — الأطباق",                        status:"Completed",                 date:"30-5-2026",  responsible:"RCC Team",   notes:"" },
   { id:26, area:"Dining Room",    task:"Chair upholstery – seat",                          ar:"تنجيد الكرسي — المقعد",                                    status:"In Progress",               date:null,         responsible:"RCC Team",   notes:"Waiting fabric" },
   { id:27, area:"Dining Room",    task:"Chair upholstery – back",                          ar:"تنجيد الكرسي — الظهر",                                     status:"Pending",                   date:null,         responsible:"RCC Team",   notes:"Waiting for fabric selection" },
   { id:28, area:"Dining Room",    task:"Curtains",                                         ar:"الستائر",                                                  status:"In Progress",               date:"15-05-2026", responsible:"Contractor", notes:"Fabric arriving end of month + 15 days install" },
+  { id:31, area:"Dining Room",    task:"Rugs",                                             ar:"سجاجيد",                                                   status:"order done",                date:null,         responsible:"RCC Team",   notes:"Waiting for samples" },
   { id:29, area:"Dining Room",    task:"Partition",                                        ar:"الفاصل",                                                   status:"In Progress",               date:"15-5-26",    responsible:"Contractor", notes:"" },
 ];
 
@@ -418,7 +422,7 @@ function saveAndApply() {
   const fullHtml = '<!DOCTYPE html>\n' + html;
   const blob  = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
   const url   = URL.createObjectURL(blob);
-  const fname = window.location.pathname.split('/').pop() || 'Villa2_PunchList_Gantt_Light_R04.html';
+  const fname = window.location.pathname.split('/').pop() || 'Villa2_PunchList_Gantt_Light_R05.html';
   const link  = document.createElement('a');
   link.href     = url;
   link.download = fname;
@@ -538,7 +542,7 @@ ${flagged.map(r => `
 
 <div class="report-footer">
   <span>RCC — DESIGN &amp; SUPERVISION DIVISION</span>
-  <span>VILLA 2 PUNCH LIST TRACKER · R04 · CONFIDENTIAL</span>
+  <span>VILLA 2 PUNCH LIST TRACKER · R05 · CONFIDENTIAL</span>
   <span dir="rtl" style="font-family:Arial,sans-serif;letter-spacing:0">شعبة التصميم والإشراف — RCC</span>
 </div>
 
@@ -712,7 +716,7 @@ function render() {
         <div style="min-width:0">
           <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:28px;font-weight:600;letter-spacing:0.08em;color:#e8c870;white-space:nowrap">VILLA 2 — PUNCH LIST TRACKER</div>
           <div style="font-size:11px;color:#8a7a5a;letter-spacing:0.14em;margin-top:5px">
-            R04 &nbsp;·&nbsp; ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}).toUpperCase()} &nbsp;·&nbsp; RCC – DESIGN &amp; SUPERVISION
+            R05 &nbsp;·&nbsp; ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}).toUpperCase()} &nbsp;·&nbsp; RCC – DESIGN &amp; SUPERVISION
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
@@ -817,7 +821,7 @@ function render() {
     <!-- FOOTER -->
     <div style="padding:12px 32px;background:#fff;border-top:1px solid #ede8df;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:9px;color:#c8bfae;letter-spacing:0.12em">RCC — DESIGN &amp; SUPERVISION DIVISION</span>
-      <span style="font-size:9px;color:#c8bfae;letter-spacing:0.12em">VILLA 2 PUNCH LIST TRACKER &nbsp;·&nbsp; R04 &nbsp;·&nbsp; CONFIDENTIAL</span>
+      <span style="font-size:9px;color:#c8bfae;letter-spacing:0.12em">VILLA 2 PUNCH LIST TRACKER &nbsp;·&nbsp; R05 &nbsp;·&nbsp; CONFIDENTIAL</span>
       <span style="font-size:9px;color:#c8bfae;letter-spacing:0.08em;direction:rtl;font-family:Arial,sans-serif">شعبة التصميم والإشراف — VILLA 2</span>
     </div>
 
