@@ -105,6 +105,37 @@
     animation:toastIn 0.3s ease;
   }
   @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  /* ── REMARKS POPUP ── */
+  .remarks-popup {
+    display: none;
+    position: fixed;
+    z-index: 9990;
+    max-width: 320px;
+    background: #1a1612;
+    color: #f0ece4;
+    border-left: 3px solid #b8893a;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-family: 'Jost', sans-serif;
+    font-size: 11px;
+    line-height: 1.55;
+    letter-spacing: 0.03em;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.32);
+    pointer-events: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .remarks-popup.visible { display: block; }
+  .remarks-popup .rp-label {
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    color: #b8893a;
+    font-weight: 600;
+    margin-bottom: 5px;
+    display: block;
+  }
+
 </style>
 </head>
 <body>
@@ -160,17 +191,17 @@
           <div class="diff-badge" style="background:#fef3c7;color:#d97706">UPDATED</div>
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-              <span style="font-size:8.5px;color:#9a8a70;font-weight:600">#120</span>
-              <span style="font-size:8.5px;color:#b8893a;letter-spacing:0.1em">First Floor · الماستر</span>
+              <span style="font-size:8.5px;color:#9a8a70;font-weight:600">#70</span>
+              <span style="font-size:8.5px;color:#b8893a;letter-spacing:0.1em">Ground Floor · غرفة الدراسة</span>
             </div>
-            <div style="font-size:11px;color:#1a1612;font-weight:500;margin-bottom:6px"></div>
+            <div style="font-size:11px;color:#1a1612;font-weight:500;margin-bottom:6px">Supply and installation of study room washbasin and vanity</div>
             <div style="display:flex;flex-direction:column;gap:5px">
               
                 <div class="field-change">
                   <span class="fchange-label">Due Date</span>
-                  <span class="from-val">2026-05-13</span>
+                  <span class="from-val">2026-05-05</span>
                   <span class="chg-arrow">→</span>
-                  <span class="to-val">2026-05-06</span>
+                  <span class="to-val">2026-05-07</span>
                 </div>
             </div>
           </div>
@@ -179,17 +210,17 @@
           <div class="diff-badge" style="background:#fef3c7;color:#d97706">UPDATED</div>
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-              <span style="font-size:8.5px;color:#9a8a70;font-weight:600">#511</span>
-              <span style="font-size:8.5px;color:#b8893a;letter-spacing:0.1em">Basement · منطقة المسبح</span>
+              <span style="font-size:8.5px;color:#9a8a70;font-weight:600">#81</span>
+              <span style="font-size:8.5px;color:#b8893a;letter-spacing:0.1em">Ground Floor · مدخل الضيوف</span>
             </div>
-            <div style="font-size:11px;color:#1a1612;font-weight:500;margin-bottom:6px">Wooden flooring installation works</div>
+            <div style="font-size:11px;color:#1a1612;font-weight:500;margin-bottom:6px"></div>
             <div style="display:flex;flex-direction:column;gap:5px">
               
                 <div class="field-change">
-                  <span class="fchange-label">Status</span>
-                  <span class="from-val">Pending</span>
+                  <span class="fchange-label">Due Date</span>
+                  <span class="from-val">2026-05-14</span>
                   <span class="chg-arrow">→</span>
-                  <span class="to-val">Done</span>
+                  <span class="to-val">2026-05-29</span>
                 </div>
             </div>
           </div>
@@ -215,6 +246,50 @@
 
   </div>
 </div>
+
+
+<!-- ─── REMARKS POPUP ─────────────────────────────────── -->
+<div id="remarksPopup" class="remarks-popup">
+  <span class="rp-label">REMARKS</span>
+  <span id="remarksText"></span>
+</div>
+
+<script>
+(function(){
+  let popup = null, textEl = null;
+  function initPopup() {
+    popup  = document.getElementById('remarksPopup');
+    textEl = document.getElementById('remarksText');
+  }
+  function showRemarks(e, text) {
+    if (!popup) initPopup();
+    textEl.textContent = text;
+    popup.classList.add('visible');
+    positionPopup(e);
+  }
+  function moveRemarks(e) {
+    if (popup && popup.classList.contains('visible')) positionPopup(e);
+  }
+  function hideRemarks() {
+    if (popup) popup.classList.remove('visible');
+  }
+  function positionPopup(e) {
+    const margin = 14;
+    const pw = popup.offsetWidth  || 280;
+    const ph = popup.offsetHeight || 60;
+    let x = e.clientX + margin;
+    let y = e.clientY + margin;
+    if (x + pw > window.innerWidth  - 8) x = e.clientX - pw - margin;
+    if (y + ph > window.innerHeight - 8) y = e.clientY - ph - margin;
+    popup.style.left = x + 'px';
+    popup.style.top  = y + 'px';
+  }
+  // Expose globally so render() can use them
+  window._showRemarks = showRemarks;
+  window._moveRemarks = moveRemarks;
+  window._hideRemarks = hideRemarks;
+})();
+</script>
 
 <!-- ─── APP ROOT ──────────────────────────────────────────── -->
 <div id="root">
@@ -1401,26 +1476,6 @@
     </div>
     <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
-        <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">70</span>
-        <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
-        <div style="flex:1;overflow:hidden">
-          <div style="font-size:11px;color:#2a2018;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none" title="Supply and installation of study room washbasin and vanity">Supply and installation of study room washbasin and vanity</div>
-          <div style="font-size:9.5px;color:#b0a080;margin-top:1px;direction:rtl;text-align:right;font-family:system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" dir="rtl" title="أعمال توريد وتركيب مغسلة و كاونتر حمام غرفة الدراسة">أعمال توريد وتركيب مغسلة و كاونتر حمام غرفة الدراسة</div>
-        </div>
-      </div>
-      <div style="flex:1;position:relative">
-        <div style="position:absolute;left:0%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:32.967032967032964%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:67.03296703296702%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:0%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:7.6923076923076925%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:15.384615384615385%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:23.076923076923077%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:30.76923076923077%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:38.46153846153847%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:46.15384615384615%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:53.84615384615385%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:61.53846153846154%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:69.23076923076923%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:76.92307692307693%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:84.61538461538461%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:92.3076923076923%;top:0;bottom:0;width:1px;background:#f0ece4"></div>
-        <div style="position:absolute;left:38.46153846153847%;top:0;bottom:0;width:2px;background:rgba(220,38,38,0.55);z-index:3"></div>
-        <div style="position:absolute;left:31.868131868131865%;width:6.593406593406594%;top:50%;transform:translateY(-50%);height:12px;border-radius:4px;z-index:2;background:#d97706;opacity:0.82;"></div>
-        <div class="tooltip">
-          <span style="font-size:9px;color:#b5770d;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #b5770d55;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">Ground Floor · غرفة الدراسة</span>
-          <span style="font-size:9px;color:#6a5f4a;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d4ccc0;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">A Hadi</span>
-          <span style="font-size:9px;color:#d97706;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d9770677;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ 2026-05-05</span>
-        </div>
-      </div>
-    </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
-      <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">94</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
         <div style="flex:1;overflow:hidden">
@@ -1439,7 +1494,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">203</span>
         <span style="width:3px;height:18px;background:#b8893a;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1459,7 +1514,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">40</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1479,7 +1534,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">120</span>
         <span style="width:3px;height:18px;background:#6b3fa0;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1499,7 +1554,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">514</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1516,6 +1571,26 @@
           <span style="font-size:9px;color:#b83232;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #b8323255;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">Basement · منطقة المسبح</span>
           <span style="font-size:9px;color:#6a5f4a;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d4ccc0;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">A Hadi</span>
           <span style="font-size:9px;color:#d97706;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d9770677;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ 2026-05-06</span>
+        </div>
+      </div>
+    </div>
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+      <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
+        <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">70</span>
+        <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
+        <div style="flex:1;overflow:hidden">
+          <div style="font-size:11px;color:#2a2018;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none" title="Supply and installation of study room washbasin and vanity">Supply and installation of study room washbasin and vanity</div>
+          <div style="font-size:9.5px;color:#b0a080;margin-top:1px;direction:rtl;text-align:right;font-family:system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" dir="rtl" title="أعمال توريد وتركيب مغسلة و كاونتر حمام غرفة الدراسة">أعمال توريد وتركيب مغسلة و كاونتر حمام غرفة الدراسة</div>
+        </div>
+      </div>
+      <div style="flex:1;position:relative">
+        <div style="position:absolute;left:0%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:32.967032967032964%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:67.03296703296702%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:0%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:7.6923076923076925%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:15.384615384615385%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:23.076923076923077%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:30.76923076923077%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:38.46153846153847%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:46.15384615384615%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:53.84615384615385%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:61.53846153846154%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:69.23076923076923%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:76.92307692307693%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:84.61538461538461%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:92.3076923076923%;top:0;bottom:0;width:1px;background:#f0ece4"></div>
+        <div style="position:absolute;left:38.46153846153847%;top:0;bottom:0;width:2px;background:rgba(220,38,38,0.55);z-index:3"></div>
+        <div style="position:absolute;left:34.065934065934066%;width:6.593406593406594%;top:50%;transform:translateY(-50%);height:12px;border-radius:4px;z-index:2;background:#d97706;opacity:0.82;"></div>
+        <div class="tooltip">
+          <span style="font-size:9px;color:#b5770d;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #b5770d55;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">Ground Floor · غرفة الدراسة</span>
+          <span style="font-size:9px;color:#6a5f4a;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d4ccc0;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">A Hadi</span>
+          <span style="font-size:9px;color:#d97706;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d9770677;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ 2026-05-07</span>
         </div>
       </div>
     </div>
@@ -1661,26 +1736,6 @@
     </div>
     <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
-        <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">81</span>
-        <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
-        <div style="flex:1;overflow:hidden">
-          <div style="font-size:11px;color:#2a2018;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none" title=""></div>
-          <div style="font-size:9.5px;color:#b0a080;margin-top:1px;direction:rtl;text-align:right;font-family:system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" dir="rtl" title="تصليح أبواب دبي">تصليح أبواب دبي</div>
-        </div>
-      </div>
-      <div style="flex:1;position:relative">
-        <div style="position:absolute;left:0%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:32.967032967032964%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:67.03296703296702%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:0%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:7.6923076923076925%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:15.384615384615385%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:23.076923076923077%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:30.76923076923077%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:38.46153846153847%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:46.15384615384615%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:53.84615384615385%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:61.53846153846154%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:69.23076923076923%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:76.92307692307693%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:84.61538461538461%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:92.3076923076923%;top:0;bottom:0;width:1px;background:#f0ece4"></div>
-        <div style="position:absolute;left:38.46153846153847%;top:0;bottom:0;width:2px;background:rgba(220,38,38,0.55);z-index:3"></div>
-        <div style="position:absolute;left:41.75824175824176%;width:6.593406593406594%;top:50%;transform:translateY(-50%);height:12px;border-radius:4px;z-index:2;background:#d97706;opacity:0.82;"></div>
-        <div class="tooltip">
-          <span style="font-size:9px;color:#b5770d;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #b5770d55;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">Ground Floor · مدخل الضيوف</span>
-          <span style="font-size:9px;color:#6a5f4a;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d4ccc0;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">eng zaher</span>
-          <span style="font-size:9px;color:#d97706;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d9770677;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ 2026-05-14</span>
-        </div>
-      </div>
-    </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
-      <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">93</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
         <div style="flex:1;overflow:hidden">
@@ -1699,7 +1754,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">510</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1719,7 +1774,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">62</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1739,7 +1794,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">308</span>
         <span style="width:3px;height:18px;background:#2e7d4f;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1759,7 +1814,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">309</span>
         <span style="width:3px;height:18px;background:#2e7d4f;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1779,7 +1834,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">310</span>
         <span style="width:3px;height:18px;background:#2e7d4f;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1799,7 +1854,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">311</span>
         <span style="width:3px;height:18px;background:#2e7d4f;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1819,7 +1874,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">501</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1839,7 +1894,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">505</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1859,7 +1914,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">512</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1879,7 +1934,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">513</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1899,7 +1954,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">61</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1919,7 +1974,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">405</span>
         <span style="width:3px;height:18px;background:#b8893a;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1939,7 +1994,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">500</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1959,7 +2014,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">65</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1979,7 +2034,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">96</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -1999,7 +2054,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">111</span>
         <span style="width:3px;height:18px;background:#6b3fa0;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -2019,7 +2074,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">507</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -2039,7 +2094,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">506</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -2059,7 +2114,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">11</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -2079,7 +2134,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">83</span>
         <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -2099,7 +2154,7 @@
         </div>
       </div>
     </div>
-    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#faf7f3;position:relative">
       <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
         <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">503</span>
         <span style="width:3px;height:18px;background:#b83232;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
@@ -2116,6 +2171,26 @@
           <span style="font-size:9px;color:#b83232;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #b8323255;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">Basement · صالون الشعر</span>
           <span style="font-size:9px;color:#6a5f4a;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d4ccc0;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">A Hadi</span>
           <span style="font-size:9px;color:#d97706;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d9770677;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ 2026-05-26</span>
+        </div>
+      </div>
+    </div>
+    <div class="tr" style="display:flex;height:46px;border-bottom:1px solid #ede8e0;background:#ffffff;position:relative">
+      <div style="width:295px;min-width:295px;padding:4px 14px;display:flex;align-items:center;gap:8px;border-right:1px solid #e0d8cc;overflow:hidden">
+        <span style="font-size:9px;color:#c0b090;font-weight:500;flex-shrink:0;width:22px;text-align:right">81</span>
+        <span style="width:3px;height:18px;background:#b5770d;border-radius:2px;flex-shrink:0;opacity:0.8"></span>
+        <div style="flex:1;overflow:hidden">
+          <div style="font-size:11px;color:#2a2018;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none" title=""></div>
+          <div style="font-size:9.5px;color:#b0a080;margin-top:1px;direction:rtl;text-align:right;font-family:system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" dir="rtl" title="تصليح أبواب دبي">تصليح أبواب دبي</div>
+        </div>
+      </div>
+      <div style="flex:1;position:relative">
+        <div style="position:absolute;left:0%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:32.967032967032964%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:67.03296703296702%;top:0;bottom:0;width:1px;background:#e8e0d0"></div><div style="position:absolute;left:0%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:7.6923076923076925%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:15.384615384615385%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:23.076923076923077%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:30.76923076923077%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:38.46153846153847%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:46.15384615384615%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:53.84615384615385%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:61.53846153846154%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:69.23076923076923%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:76.92307692307693%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:84.61538461538461%;top:0;bottom:0;width:1px;background:#f0ece4"></div><div style="position:absolute;left:92.3076923076923%;top:0;bottom:0;width:1px;background:#f0ece4"></div>
+        <div style="position:absolute;left:38.46153846153847%;top:0;bottom:0;width:2px;background:rgba(220,38,38,0.55);z-index:3"></div>
+        <div style="position:absolute;left:58.24175824175825%;width:6.593406593406594%;top:50%;transform:translateY(-50%);height:12px;border-radius:4px;z-index:2;background:#d97706;opacity:0.82;"></div>
+        <div class="tooltip">
+          <span style="font-size:9px;color:#b5770d;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #b5770d55;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">Ground Floor · مدخل الضيوف</span>
+          <span style="font-size:9px;color:#6a5f4a;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d4ccc0;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">eng zaher</span>
+          <span style="font-size:9px;color:#d97706;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d9770677;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ 2026-05-29</span>
         </div>
       </div>
     </div>
@@ -2292,7 +2367,8 @@ const RAW = [
     "ar": "أعمال تنفيذ النعلات (عينه)",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-04-27"
+    "date": "2026-04-27",
+    "remarks": "جاري العمل بالموقع"
   },
   {
     "id": 2,
@@ -2303,7 +2379,8 @@ const RAW = [
     "ar": "أعمال دهان الأسقف – الطبقة النهائية",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-05-04"
+    "date": "2026-05-04",
+    "remarks": "time extension due to increase in quantity"
   },
   {
     "id": 3,
@@ -2314,7 +2391,8 @@ const RAW = [
     "ar": "أعمال جلي وتلميع الأرضيات",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-24"
+    "date": "2026-05-24",
+    "remarks": ""
   },
   {
     "id": 4,
@@ -2325,7 +2403,8 @@ const RAW = [
     "ar": "البوفيه",
     "status": "Pending",
     "responsible": "Eng. Zain",
-    "date": null
+    "date": null,
+    "remarks": ""
   },
   {
     "id": 5,
@@ -2336,7 +2415,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب درابزين زجاجي للسلم الحلزوني (مثبت على الدرج بارتفاع 1 متر)",
     "status": "Canceled",
     "responsible": "A Hadi",
-    "date": null
+    "date": null,
+    "remarks": "تم الإلغاء بطلب من المالك"
   },
   {
     "id": 6,
@@ -2347,7 +2427,8 @@ const RAW = [
     "ar": "أعمال تنفيذ كسوة خارجية للسلم الحلزوني من أعمدة خشبية",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-14"
+    "date": "2026-05-14",
+    "remarks": ""
   },
   {
     "id": 7,
@@ -2358,7 +2439,8 @@ const RAW = [
     "ar": "تمديد السلاك الاناره اسفل الاعمده الخشبيه",
     "status": "Pending",
     "responsible": "Eng. Abdulfattah",
-    "date": "2026-05-06"
+    "date": "2026-05-06",
+    "remarks": "time extension due to increase in quantity"
   },
   {
     "id": 8,
@@ -2369,7 +2451,8 @@ const RAW = [
     "ar": "الفاير بليس",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": null
+    "date": null,
+    "remarks": ""
   },
   {
     "id": 9,
@@ -2380,7 +2463,8 @@ const RAW = [
     "ar": "أعمال جبس (منطقة المغاسل)",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-12"
+    "date": "2026-04-12",
+    "remarks": ""
   },
   {
     "id": 10,
@@ -2391,7 +2475,8 @@ const RAW = [
     "ar": "أعمال تنفيذ كسوة رخام للجدران (منطقة المغاسل) VADA",
     "status": "Pending",
     "responsible": "Eng. Zain",
-    "date": "2026-05-19"
+    "date": "2026-05-19",
+    "remarks": ""
   },
   {
     "id": 11,
@@ -2402,7 +2487,8 @@ const RAW = [
     "ar": "أعمال تنفيذ كسوة معدنية للأبواب (إطار نحاسي)",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": ""
   },
   {
     "id": 12,
@@ -2413,7 +2499,8 @@ const RAW = [
     "ar": "تنفيذ قواعد المغاسل",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-09"
+    "date": "2026-05-09",
+    "remarks": "sample done"
   },
   {
     "id": 13,
@@ -2424,7 +2511,8 @@ const RAW = [
     "ar": "أعمال لياسة الجدار فوق الجبس",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-12"
+    "date": "2026-04-12",
+    "remarks": ""
   },
   {
     "id": 14,
@@ -2435,7 +2523,8 @@ const RAW = [
     "ar": "أعمال دهان السقف  (منطقة المغاسل)",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-20"
+    "date": "2026-05-20",
+    "remarks": "تم التاسيس والسنفره, باقي الطبقه النهائيه"
   },
   {
     "id": 15,
@@ -2446,7 +2535,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب أبواب الحمامات الرئيسية",
     "status": "Pending",
     "responsible": "Eng. Zain",
-    "date": "2026-06-14"
+    "date": "2026-06-14",
+    "remarks": "Not yet delivered from Italy."
   },
   {
     "id": 16,
@@ -2457,7 +2547,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب مغسلة و كاونتر حمام غرفة الدراسة",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-05"
+    "date": "2026-05-07",
+    "remarks": ""
   },
   {
     "id": 17,
@@ -2468,7 +2559,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب درابزين معدني خارجي لمدخل الخدمة",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-28"
+    "date": "2026-04-28",
+    "remarks": ""
   },
   {
     "id": 18,
@@ -2479,7 +2571,8 @@ const RAW = [
     "ar": "تركيب خزانه الممر",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-26"
+    "date": "2026-04-26",
+    "remarks": ""
   },
   {
     "id": 19,
@@ -2490,7 +2583,8 @@ const RAW = [
     "ar": "تشطيب الباب المخفي",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-26"
+    "date": "2026-04-26",
+    "remarks": ""
   },
   {
     "id": 20,
@@ -2501,7 +2595,8 @@ const RAW = [
     "ar": "أعمال تنفيذ كسوة معدنية للمدخل الرئيسي منطقو اللوبي",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-05-04"
+    "date": "2026-05-04",
+    "remarks": ""
   },
   {
     "id": 21,
@@ -2512,7 +2607,8 @@ const RAW = [
     "ar": "تصليح أبواب دبي",
     "status": "Pending",
     "responsible": "eng zaher",
-    "date": "2026-05-14"
+    "date": "2026-05-29",
+    "remarks": "delay by Dubai Company"
   },
   {
     "id": 22,
@@ -2523,7 +2619,8 @@ const RAW = [
     "ar": "أعمال تنفيذ كسوة رخام للجدران عند المغاسل VADA",
     "status": "Canceled",
     "responsible": "Eng. Zain",
-    "date": null
+    "date": null,
+    "remarks": "Repeated"
   },
   {
     "id": 23,
@@ -2534,7 +2631,8 @@ const RAW = [
     "ar": "أعمال تركيب  – كاونتر المغسله",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-24"
+    "date": "2026-05-24",
+    "remarks": "delay by VADA"
   },
   {
     "id": 24,
@@ -2545,7 +2643,8 @@ const RAW = [
     "ar": "أعمال تنفيذ كسوة رخام للجدران – مكتب الشيخ",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-12"
+    "date": "2026-04-12",
+    "remarks": ""
   },
   {
     "id": 25,
@@ -2556,7 +2655,8 @@ const RAW = [
     "ar": "أعمال تنفيذ تعديلا فتحات الستائر في الجبس – مكتب الشيخ",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-13"
+    "date": "2026-04-13",
+    "remarks": ""
   },
   {
     "id": 26,
@@ -2567,7 +2667,8 @@ const RAW = [
     "ar": "أعمال تنفيذ تعديلا الدهنات اماكن الستائر في الجبس – مكتب الشيخ",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-22"
+    "date": "2026-04-22",
+    "remarks": ""
   },
   {
     "id": 27,
@@ -2578,7 +2679,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب مكتبه خشبية – مكتب الشيخ",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-14"
+    "date": "2026-05-14",
+    "remarks": "Price not approved"
   },
   {
     "id": 28,
@@ -2589,7 +2691,8 @@ const RAW = [
     "ar": "فتح الرخامه في المكتب و فتح مكان الفلور بوكس",
     "status": "Pending",
     "responsible": "—",
-    "date": "2026-05-05"
+    "date": "2026-05-05",
+    "remarks": ""
   },
   {
     "id": 29,
@@ -2600,7 +2703,8 @@ const RAW = [
     "ar": "أعمال تركيب مكتب خشبية وترحيل الفلور بوكس– مكتب الشيخ",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-04"
+    "date": "2026-05-04",
+    "remarks": "Repeated"
   },
   {
     "id": 30,
@@ -2611,7 +2715,8 @@ const RAW = [
     "ar": "أعمال توريد و تركيب ورق جدران",
     "status": "Pending",
     "responsible": "Eng. Zain",
-    "date": "2026-05-20"
+    "date": "2026-05-20",
+    "remarks": "أعتماد العينه, التوريد والتركيب بعد ثلاث أسابيع"
   },
   {
     "id": 31,
@@ -2622,7 +2727,8 @@ const RAW = [
     "ar": "أعمال ترحيل الفلور بوكس– مكتب الشيخ",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-04-26"
+    "date": "2026-04-26",
+    "remarks": "Repeated"
   },
   {
     "id": 32,
@@ -2633,7 +2739,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب خزانة النيرسري",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-13"
+    "date": "2026-04-13",
+    "remarks": "Infix"
   },
   {
     "id": 33,
@@ -2644,7 +2751,8 @@ const RAW = [
     "ar": "البنش",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-20"
+    "date": "2026-05-20",
+    "remarks": "Delayed in the waiting for the furniture color"
   },
   {
     "id": 34,
@@ -2655,7 +2763,8 @@ const RAW = [
     "ar": "ورق الجدران",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-24"
+    "date": "2026-04-24",
+    "remarks": ""
   },
   {
     "id": 35,
@@ -2666,7 +2775,8 @@ const RAW = [
     "ar": "تلوين مكان الانارة الجداريه",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-06"
+    "date": "2026-05-06",
+    "remarks": ""
   },
   {
     "id": 36,
@@ -2677,7 +2787,8 @@ const RAW = [
     "ar": "مخده أبو سهيل",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-28"
+    "date": "2026-04-28",
+    "remarks": ""
   },
   {
     "id": 37,
@@ -2688,7 +2799,8 @@ const RAW = [
     "ar": "المكتبة السلايدينغ",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-24"
+    "date": "2026-04-24",
+    "remarks": ""
   },
   {
     "id": 38,
@@ -2699,7 +2811,8 @@ const RAW = [
     "ar": "تركيب ارفف الترافينتاين",
     "status": "Canceled",
     "responsible": "A Hadi",
-    "date": null
+    "date": null,
+    "remarks": ""
   },
   {
     "id": 39,
@@ -2710,7 +2823,8 @@ const RAW = [
     "ar": "فلور بوكس",
     "status": "Pending",
     "responsible": "Eng. Abdulfattah",
-    "date": "2026-04-24"
+    "date": "2026-04-24",
+    "remarks": "تم الإلغاء بطلب من المالك"
   },
   {
     "id": 40,
@@ -2721,7 +2835,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب شبك الحشرات",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": null
+    "date": null,
+    "remarks": "بالنتظار عرض سعر من ابراد النهار"
   },
   {
     "id": 41,
@@ -2732,7 +2847,8 @@ const RAW = [
     "ar": "الماستر كي",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-03-31"
+    "date": "2026-03-31",
+    "remarks": "باقي اقفال الحمامات"
   },
   {
     "id": 42,
@@ -2743,7 +2859,8 @@ const RAW = [
     "ar": "تصليح التكييف",
     "status": "Done",
     "responsible": "Sharma",
-    "date": "2026-04-27"
+    "date": "2026-04-27",
+    "remarks": "بالنتظار احضار المحرك من الورشه"
   },
   {
     "id": 43,
@@ -2754,7 +2871,8 @@ const RAW = [
     "ar": "الغاء المغسله",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-24"
+    "date": "2026-04-24",
+    "remarks": ""
   },
   {
     "id": 44,
@@ -2765,7 +2883,8 @@ const RAW = [
     "ar": "تعديل الفتحات",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-20"
+    "date": "2026-04-20",
+    "remarks": ""
   },
   {
     "id": 45,
@@ -2776,7 +2895,8 @@ const RAW = [
     "ar": "تصليح باب غرفه الغسيل",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-05"
+    "date": "2026-05-05",
+    "remarks": ""
   },
   {
     "id": 46,
@@ -2787,7 +2907,8 @@ const RAW = [
     "ar": "قفل الباب الخارجي",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-24"
+    "date": "2026-04-24",
+    "remarks": ""
   },
   {
     "id": 47,
@@ -2798,7 +2919,8 @@ const RAW = [
     "ar": "أعمال تنفيذ صبة خرسانية لممر المشاة الخارجي",
     "status": "Done",
     "responsible": "Khaled",
-    "date": "2026-04-05"
+    "date": "2026-04-05",
+    "remarks": ""
   },
   {
     "id": 48,
@@ -2809,7 +2931,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب بلاط بميل مناسب باتجاه نقاط التصريف عند الواجهات الخلفيه",
     "status": "Done",
     "responsible": "Khaled",
-    "date": "2026-04-07"
+    "date": "2026-04-07",
+    "remarks": ""
   },
   {
     "id": 49,
@@ -2820,7 +2943,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب بلاط تيرازو لممر المشاة الخارجي عند الواجهه الخلفيه",
     "status": "Done",
     "responsible": "Khaled",
-    "date": "2026-04-07"
+    "date": "2026-04-07",
+    "remarks": ""
   },
   {
     "id": 50,
@@ -2831,7 +2955,8 @@ const RAW = [
     "ar": "أعمال تنفيذ أب ستاند لمنطقة أحواض الزراعة عند الواجهه الخلفيه",
     "status": "Done",
     "responsible": "Khaled",
-    "date": "2026-04-08"
+    "date": "2026-04-08",
+    "remarks": ""
   },
   {
     "id": 51,
@@ -2842,7 +2967,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب أغطية الخزانات وغرف المضخات",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-25"
+    "date": "2026-04-25",
+    "remarks": ""
   },
   {
     "id": 52,
@@ -2853,7 +2979,8 @@ const RAW = [
     "ar": "أعمال تنفيذ العزل المائي لأرضيه الباك يارد للزراعة",
     "status": "Done",
     "responsible": "Khaled",
-    "date": "2026-04-14"
+    "date": "2026-04-14",
+    "remarks": ""
   },
   {
     "id": 53,
@@ -2864,7 +2991,8 @@ const RAW = [
     "ar": "أعمال تركيب مواسير الصرف فوق طبقة العزل",
     "status": "Done",
     "responsible": "Eng. Ibrahim",
-    "date": "2026-04-28"
+    "date": "2026-04-28",
+    "remarks": ""
   },
   {
     "id": 54,
@@ -2875,7 +3003,8 @@ const RAW = [
     "ar": "أعمال تنفيذ وتنسيق الموقع الزراعي عند الباك يارد",
     "status": "Pending",
     "responsible": "Eng. Maaly",
-    "date": "2026-05-09"
+    "date": "2026-05-09",
+    "remarks": "Waiting for insulation and external work"
   },
   {
     "id": 55,
@@ -2886,7 +3015,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب أرضيات خشبية (Decking) لممر المشاة",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": "Waiting for insulation and external work"
   },
   {
     "id": 56,
@@ -2897,7 +3027,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب أرضيات خشبية أسفل المظلة",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": "Waiting for insulation and external work"
   },
   {
     "id": 57,
@@ -2908,7 +3039,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب إنارة لممر المشاة الخارجي في الباك يارد",
     "status": "Pending",
     "responsible": "Eng. Ibrahim",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": "Waiting for insulation and external work"
   },
   {
     "id": 58,
@@ -2919,7 +3051,8 @@ const RAW = [
     "ar": "تنفيذ ال BBQ",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": "Waiting for insulation and external work"
   },
   {
     "id": 59,
@@ -2930,7 +3063,8 @@ const RAW = [
     "ar": "تشطيب الشلال",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-27"
+    "date": "2026-04-27",
+    "remarks": ""
   },
   {
     "id": 60,
@@ -2941,7 +3075,8 @@ const RAW = [
     "ar": "أعمال تنفيذ شبكة الري وتصريف المياه الاحواض الزراعيه الأمامية",
     "status": "Done",
     "responsible": "Eng. Ibrahim",
-    "date": "2026-04-06"
+    "date": "2026-04-06",
+    "remarks": ""
   },
   {
     "id": 61,
@@ -2952,7 +3087,8 @@ const RAW = [
     "ar": "أعمال تنفيذ وتنسيق الموقع الزراعي في لاحواض الزراعيه الأمامية",
     "status": "Done",
     "responsible": "Eng. Maaly",
-    "date": "2026-04-07"
+    "date": "2026-04-07",
+    "remarks": ""
   },
   {
     "id": 62,
@@ -2963,7 +3099,8 @@ const RAW = [
     "ar": "أعمال دهان بوابة الخدمة",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-12"
+    "date": "2026-04-12",
+    "remarks": ""
   },
   {
     "id": 63,
@@ -2974,7 +3111,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب مقابض الأبواب الخارجية",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-09"
+    "date": "2026-05-09",
+    "remarks": "Searching for choices for owner approval"
   },
   {
     "id": 64,
@@ -2985,7 +3123,8 @@ const RAW = [
     "ar": "أعمال دهان البوابة الرئيسية",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-20"
+    "date": "2026-04-20",
+    "remarks": ""
   },
   {
     "id": 65,
@@ -2996,7 +3135,8 @@ const RAW = [
     "ar": "أعمال تنفيذ مظلة مواقف السيارات",
     "status": "Pending",
     "responsible": "Adel",
-    "date": "2026-05-19"
+    "date": "2026-05-19",
+    "remarks": ""
   },
   {
     "id": 66,
@@ -3007,7 +3147,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب بوابه سحاب",
     "status": "Done",
     "responsible": "Eng. Zaher",
-    "date": "2026-05-29"
+    "date": "2026-05-29",
+    "remarks": "المحرك القديم تحت الاختبار, في حاله رغبة المالك سوف يتم تغيير المحرك الى ذراعات"
   },
   {
     "id": 67,
@@ -3018,7 +3159,8 @@ const RAW = [
     "ar": "تنظيف البازلت تنظيف عميق",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-10"
+    "date": "2026-05-10",
+    "remarks": "تم عمل عينه بانتظار عرض السعر"
   },
   {
     "id": 68,
@@ -3029,7 +3171,8 @@ const RAW = [
     "ar": "تغيير مسكه الباب",
     "status": "Canceled",
     "responsible": "A Hadi",
-    "date": "2026-05-09"
+    "date": "2026-05-09",
+    "remarks": ""
   },
   {
     "id": 69,
@@ -3040,7 +3183,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب مغسله والخزانه",
     "status": "Pending",
     "responsible": "Eng. Zain",
-    "date": "2026-05-19"
+    "date": "2026-05-19",
+    "remarks": "Delayed till approval of the design"
   },
   {
     "id": 70,
@@ -3051,7 +3195,8 @@ const RAW = [
     "ar": "فرش",
     "status": "Pending",
     "responsible": "Eng. Zain",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": "shipped"
   },
   {
     "id": 71,
@@ -3062,7 +3207,8 @@ const RAW = [
     "ar": "تعديل الرخامه عند الفاير بليس",
     "status": "Canceled",
     "responsible": "A Hadi",
-    "date": null
+    "date": null,
+    "remarks": ""
   },
   {
     "id": 72,
@@ -3073,7 +3219,8 @@ const RAW = [
     "ar": "أعمال توريد و تركيب ورق جدران",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-26"
+    "date": "2026-05-26",
+    "remarks": "delayed for searching options"
   },
   {
     "id": 73,
@@ -3084,7 +3231,8 @@ const RAW = [
     "ar": "سنفره الجدار",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-04-27"
+    "date": "2026-04-27",
+    "remarks": ""
   },
   {
     "id": 74,
@@ -3095,7 +3243,8 @@ const RAW = [
     "ar": "البنش المعلق",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": ""
   },
   {
     "id": 75,
@@ -3106,7 +3255,8 @@ const RAW = [
     "ar": "الكانتور زجاج + دهان + تركيب الثلاجه",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-21"
+    "date": "2026-05-21",
+    "remarks": "Postponed due to modification requests"
   },
   {
     "id": 76,
@@ -3117,7 +3267,8 @@ const RAW = [
     "ar": "الخزانه تحت الشاشه",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-20"
+    "date": "2026-05-20",
+    "remarks": ""
   },
   {
     "id": 77,
@@ -3128,7 +3279,8 @@ const RAW = [
     "ar": "اكسسوار عند ورق الجدارن",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-26"
+    "date": "2026-04-26",
+    "remarks": ""
   },
   {
     "id": 78,
@@ -3139,7 +3291,8 @@ const RAW = [
     "ar": "تركيب البارتيشين + ارفف زجاج + مرايا المغاسل",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-13"
+    "date": "2026-05-13",
+    "remarks": "Delayed in the search for a supplier"
   },
   {
     "id": 79,
@@ -3150,7 +3303,8 @@ const RAW = [
     "ar": "اعاده تركيب المطبخ",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-14"
+    "date": "2026-05-14",
+    "remarks": "waiting for the topcounter"
   },
   {
     "id": 80,
@@ -3161,7 +3315,8 @@ const RAW = [
     "ar": "أعمال تركيب أرضيات خشبية لمنطقه المسبح",
     "status": "Done",
     "responsible": "A Hadi",
-    "date": "2026-04-26"
+    "date": "2026-04-26",
+    "remarks": ""
   },
   {
     "id": 81,
@@ -3172,7 +3327,8 @@ const RAW = [
     "ar": "أناره تحت الدرج",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": ""
   },
   {
     "id": 82,
@@ -3183,7 +3339,8 @@ const RAW = [
     "ar": "الاناره الجداريه عند المصعد",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-15"
+    "date": "2026-05-15",
+    "remarks": ""
   },
   {
     "id": 83,
@@ -3194,7 +3351,8 @@ const RAW = [
     "ar": "تركيب باب الزجاج",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-05-06"
+    "date": "2026-05-06",
+    "remarks": "Rectifications in remarks"
   },
   {
     "id": 84,
@@ -3205,7 +3363,8 @@ const RAW = [
     "ar": "تركيب الستائر",
     "status": "Pending",
     "responsible": "A Hadi",
-    "date": "2026-04-28"
+    "date": "2026-04-28",
+    "remarks": ""
   },
   {
     "id": 85,
@@ -3216,7 +3375,8 @@ const RAW = [
     "ar": "أعمال إصلاح وصيانة تكييف تراس الماستر",
     "status": "Done",
     "responsible": "Eng. Ibrahim",
-    "date": "2026-04-04"
+    "date": "2026-04-04",
+    "remarks": ""
   },
   {
     "id": 86,
@@ -3227,7 +3387,8 @@ const RAW = [
     "ar": "أعمال تثبيت باب لوحة التحكم",
     "status": "Done",
     "responsible": "Khaled",
-    "date": "2026-04-04"
+    "date": "2026-04-04",
+    "remarks": ""
   },
   {
     "id": 87,
@@ -3238,7 +3399,8 @@ const RAW = [
     "ar": "أعمال لياسة (بئر المصعد)",
     "status": "Done",
     "responsible": "Khaled",
-    "date": "2026-04-10"
+    "date": "2026-04-10",
+    "remarks": ""
   },
   {
     "id": 88,
@@ -3249,7 +3411,8 @@ const RAW = [
     "ar": "أعمال دهان (بئر المصعد)",
     "status": "Done",
     "responsible": "Khaled",
-    "date": "2026-04-12"
+    "date": "2026-04-12",
+    "remarks": "باقي الواجهه الأماميه"
   },
   {
     "id": 89,
@@ -3260,7 +3423,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب غطاء رخام لصفاية المطبخ",
     "status": "Pending",
     "responsible": "Eng. Ibrahim",
-    "date": "2026-04-26"
+    "date": "2026-04-26",
+    "remarks": "محتاجه تعديل"
   },
   {
     "id": 90,
@@ -3271,7 +3435,8 @@ const RAW = [
     "ar": "أعمال توريد وتركيب غطاء رخام لصفاية البانتري",
     "status": "Pending",
     "responsible": "Eng. Ibrahim",
-    "date": "2026-04-26"
+    "date": "2026-04-26",
+    "remarks": "محتاجه تعديل"
   }
 ];
 
@@ -3428,6 +3593,7 @@ function render() {
           <span style="font-size:9px;color:${sColor};background:#fff;padding:2px 8px;border-radius:3px;border:1px solid ${sColor}55;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">${task.section} · ${task.area}</span>
           <span style="font-size:9px;color:#6a5f4a;background:#fff;padding:2px 8px;border-radius:3px;border:1px solid #d4ccc0;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">${task.responsible}</span>
           <span style="font-size:9px;color:${sCfg.color};background:#fff;padding:2px 8px;border-radius:3px;border:1px solid ${sCfg.color}77;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08)">↦ ${task.date}</span>
+          ${task.remarks ? `<span data-remark="${task.remarks.replace(/"/g,'&quot;')}" class="remark-chip" onmouseenter="window._showRemarks(event,this.dataset.remark)" onmousemove="window._moveRemarks(event)" onmouseleave="window._hideRemarks()" style="font-size:9px;color:#7a5f20;background:#fef9ec;padding:2px 8px;border-radius:3px;border:1px solid #b8893a55;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08);cursor:default">💬 Remarks</span>` : ''}
         </div>
       </div>
     </div>`;
@@ -3455,6 +3621,7 @@ function render() {
           <span style="font-size:9px;letter-spacing:0.1em;color:${isCanceled?"#9ca3af":"#8a7a68"};border:1px solid ${isCanceled?"#d1d5db":"#c8bfb0"};border-radius:12px;padding:2px 10px;background:${isCanceled?"#f9fafb":"#f7f4ef"}">${isCanceled?"CANCELED":"DATE TBD"}</span>
           <span style="font-size:9.5px;color:#9a8a78">${task.responsible}</span>
           <span style="font-size:9.5px;color:${sColor}99">${task.section}</span>
+          ${task.remarks ? `<span data-remark="${task.remarks.replace(/"/g,'&quot;')}" class="remark-chip" onmouseenter="window._showRemarks(event,this.dataset.remark)" onmousemove="window._moveRemarks(event)" onmouseleave="window._hideRemarks()" style="font-size:9px;color:#7a5f20;background:#fef9ec;padding:2px 8px;border-radius:3px;border:1px solid #b8893a55;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.08);cursor:default">💬 Remarks</span>` : ''}
         </div>
       </div>`;
     }).join("")}`;
@@ -3587,7 +3754,7 @@ let _pendingNewRaw = null;
  *  6  → Status       → status  (null → "Pending")
  *  7  → Responsible  → responsible
  *  8  → Target Date  → date    (Date object → "YYYY-MM-DD" | null)
- *  9  → Remarks      (ignored)
+ *  9  → Remarks      → remarks
  */
 function handleUpload(input) {
   const file = input.files[0];
@@ -3635,6 +3802,7 @@ function handleUpload(input) {
           status,
           responsible: (row[7] || "—").trim(),
           date,
+          remarks:     (row[9] != null ? String(row[9]) : "").trim(),
         };
       }).filter(Boolean);
 
@@ -3659,7 +3827,7 @@ function handleUpload(input) {
  * Returns { added, modified, unchanged, removed }.
  */
 function compareLists(current, incoming) {
-  const TRACK = ["status", "responsible", "date", "desc", "ar"];
+  const TRACK = ["status", "responsible", "date", "desc", "ar", "remarks"];
 
   const curMap = new Map(current.map(t => [t.id, t]));
   const incMap = new Map(incoming.map(t => [t.id, t]));
@@ -3729,7 +3897,7 @@ function openDiffModal(diff) {
   const FIELD_LABELS = {
     status:"Status", responsible:"Responsible", date:"Due Date",
     desc:"Description (EN)", ar:"Description (AR)",
-    section:"Section", area:"Area", ref:"Ref #"
+    section:"Section", area:"Area", ref:"Ref #", remarks:"Remarks"
   };
 
   let body = "";
@@ -4258,4 +4426,4 @@ render();
 </script>
 
 
-<div class="vt-toast"><span style="color:#b8893a;margin-right:8px">✓</span>90 changes applied — 0 added · 90 updated</div><div class="vt-toast"><span style="color:#b8893a;margin-right:8px">✓</span>43 changes applied — 0 added · 43 updated</div><div class="vt-toast"><span style="color:#b8893a;margin-right:8px">✓</span>2 changes applied — 0 added · 2 updated</div></body></html>
+<div class="vt-toast"><span style="color:#b8893a;margin-right:8px">✓</span>90 changes applied — 0 added · 90 updated</div><div class="vt-toast"><span style="color:#b8893a;margin-right:8px">✓</span>43 changes applied — 0 added · 43 updated</div><div class="vt-toast"><span style="color:#b8893a;margin-right:8px">✓</span>2 changes applied — 0 added · 2 updated</div><div class="vt-toast"><span style="color:#b8893a;margin-right:8px">✓</span>2 changes applied — 0 added · 2 updated</div></body></html>
