@@ -45,12 +45,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  TIMELINE — fully dynamic, never hardcoded
 // ═══════════════════════════════════════════════════════════════════════════
-const TIMELINE_START = new Date("2026-04-01");
-const DAYS           = 76;
+// Timeline is computed AFTER the RAW data array is defined (see initTimeline()).
+// These are declared with let so initTimeline() can populate them, while the
+// helper functions below can still close over the names.
+let TIMELINE_START, _END, DAYS, MONTHS, WEEKS;
 
 const TODAY_DATE  = new Date();
-const TODAY_OFF   = Math.max(0, Math.min(DAYS, Math.round((TODAY_DATE - TIMELINE_START) / 86400000)));
 const TODAY_LABEL = TODAY_DATE.toLocaleDateString("en-GB", { day:"numeric", month:"short" }).toUpperCase();
+function todayOff(){ return Math.max(0, Math.min(DAYS, Math.round((TODAY_DATE - TIMELINE_START) / 86400000))); }
 
 function toOff(raw) {
   if (!raw) return null;
@@ -63,17 +65,35 @@ function toOff(raw) {
   return isNaN(dt) ? null : Math.round((dt - TIMELINE_START) / 86400000);
 }
 
-const MONTHS = [
-  { label:"APRIL 2026",  start:0,  days:30 },
-  { label:"MAY 2026",    start:30, days:31 },
-  { label:"JUNE 2026",   start:61, days:15 },
-];
-const WEEKS = [0,7,14,21,28,35,42,49,56,63,70];
+const _MONTH_NAMES = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+function initTimeline(){
+  const ds = RAW.map(t=>{
+    const m = String(t.date||"").trim().match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+    if(!m) return null;
+    let [,d,mo,yr]=m; if(yr.length===2) yr="20"+yr;
+    const dt=new Date(`${yr}-${mo.padStart(2,"0")}-${d.padStart(2,"0")}`);
+    return isNaN(dt)?null:dt;
+  }).filter(Boolean);
+  const mn = ds.length?new Date(Math.min(...ds)):new Date("2026-04-01");
+  const mx = ds.length?new Date(Math.max(...ds)):new Date("2026-06-15");
+  TIMELINE_START = new Date(mn.getFullYear(), mn.getMonth(), 1);
+  _END           = new Date(mx.getFullYear(), mx.getMonth()+1, 1);
+  DAYS           = Math.max(31, Math.round((_END - TIMELINE_START)/86400000));
+  MONTHS = (()=>{ const arr=[]; let cur=new Date(TIMELINE_START);
+    while(true){ const off=Math.round((cur-TIMELINE_START)/86400000); if(off>=DAYS) break;
+      const next=new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+      const span=Math.round((next-cur)/86400000);
+      arr.push({label:`${_MONTH_NAMES[cur.getMonth()]} ${cur.getFullYear()}`, start:off, days:Math.min(span, DAYS-off)});
+      cur=next; } return arr; })();
+  WEEKS = (()=>{ const w=[]; for(let d=0; d<DAYS; d+=7) w.push(d); return w; })();
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  STATUS CONFIG
 // ═══════════════════════════════════════════════════════════════════════════
 const SCFG = {
+  "completed":                 { color:"#16a34a", label:"Completed",              group:"done"    },
+  "with anas":                 { color:"#b45309", label:"With Anas",             group:"active"  },
   "Completed":                 { color:"#16a34a", label:"Completed",              group:"done"    },
   "Delivered":                 { color:"#16a34a", label:"Delivered",              group:"done"    },
   "ARRIVED":                   { color:"#16a34a", label:"Arrived",                group:"done"    },
@@ -121,38 +141,426 @@ const LEGEND_ALL = [
 //  DATA  — all original tasks preserved exactly; responsible + ar added
 // ═══════════════════════════════════════════════════════════════════════════
 let RAW = [
-  { id:1,  area:"Main Entrance",  task:"Palm & shell works + add shells around fireplace", ar:"أعمال النخيل والأصداف وإضافة أصداف حول المدفأة",          status:"Completed",                 date:"30-04-2026", responsible:"Darwin",     notes:"With Darwin working on sample" },
-  { id:2,  area:"Main Entrance",  task:"Entrance chandelier (painting stage)",             ar:"ثريا المدخل — مرحلة الطلاء",                               status:"In Progress",               date:"15-05-2026", responsible:"RCC Team",   notes:"Ready at 5-5 to ship" },
-  { id:3,  area:"Main Entrance",  task:"Abaya room completed",                             ar:"اكتمال غرفة العباية",                                       status:"Completed",                 date:null,         responsible:"RCC Team",   notes:"Lighting" },
-  { id:4,  area:"Main Entrance",  task:"L-shape sofa upholstery",                          ar:"تنجيد الكنبة على شكل حرف L",                              status:"In Progress",               date:"20-5-2026",  responsible:"RCC Team",   notes:"UPHOLESTERY" },
-  { id:5,  area:"Main Entrance",  task:"Floor box cancellation",                           ar:"إلغاء صندوق الأرضية",                                      status:"cancel",                    date:null,         responsible:"RCC Team",   notes:"Waiting for owner decision" },
-  { id:6,  area:"Main Entrance",  task:"Bench fabric decision",                            ar:"قرار قماش المقعد",                                         status:"Pending",                   date:null,         responsible:"Owner",      notes:"Waiting for owner decision" },
-  { id:7,  area:"Washbasin Area", task:"Last internal sink delivery",                      ar:"تسليم المغسلة الداخلية الأخيرة",                           status:"Completed",                 date:"05-06-2026", responsible:"Paulo",      notes:"Paulo" },
-  { id:8,  area:"Washbasin Area", task:"Mirror (no lighting) by contractor",               ar:"المرآة بدون إضاءة — من قبل المقاول",                       status:"ready",                     date:"20-05-2026", responsible:"Contractor", notes:"After sink installation" },
-  { id:9,  area:"Washbasin Area", task:"Lower washbasin curtains",                         ar:"ستائر المغسلة السفلية",                                     status:"ready",                     date:"05-04-2026",  responsible:"RCC Team",   notes:"Sample not approved" },
-  { id:10, area:"Washbasin Area", task:"Small black tiles frame",                          ar:"إطار البلاط الأسود الصغير",                                status:"ready",                     date:"05-04-2026",  responsible:"Contractor", notes:"" },
-  { id:11, area:"Washbasin Area", task:"Toilet window curtains",                           ar:"ستائر نافذة الحمام",                                       status:"ready",                     date:"25-4-2026",  responsible:"Contractor", notes:"We need to change the chain" },
-  { id:12, area:"Washbasin Area", task:"Table cover frame border",                         ar:"حدود إطار غطاء الطاولة",                                   status:"In Progress",               date:"25-05-2026", responsible:"RCC Team",   notes:"Waiting for the border" },
-  { id:30, area:"Washbasin Area", task:"Carpet runner",                                    ar:"سجادة ممر",                                                status:"In Progress",               date:null,         responsible:"RCC Team",   notes:"Order done – waiting for samples" },
-  { id:13, area:"Main majles",    task:"Wooden works",                                     ar:"الأعمال الخشبية",                                           status:"Completed",                 date:null,         responsible:"Contractor", notes:"" },
-  { id:14, area:"Main majles",    task:"Curtain supplier meeting",                         ar:"اجتماع مورد الستائر",                                       status:"samples",                   date:"05-10-2026", responsible:"RCC Team",   notes:"New fabric selection" },
-  { id:15, area:"Main majles",    task:"LULU LAROTUNE sofa",                               ar:"كنبة لولو لاروتون",                                        status:"ready to ship",             date:null,         responsible:"Paulo",      notes:"Paulo" },
-  { id:16, area:"Main majles",    task:"DOOQ sofa",                                        ar:"كنبة دوك",                                                 status:"In Progress",               date:"15-5-26",    responsible:"RCC Team",   notes:"Extra trim ordered" },
-  { id:17, area:"Main majles",    task:"DUDGEON sofa",                                     ar:"كنبة دادجون",                                              status:"Completed/Pending Payment", date:"15-05-2026", responsible:"RCC Team",   notes:"Waiting transfer confirmation" },
-  { id:18, area:"Main majles",    task:"PACIFIC sofa",                                     ar:"كنبة باسيفيك",                                             status:"Delivered",                 date:null,         responsible:"Owner",      notes:"Owner to approve fabric" },
-  { id:19, area:"Main majles",    task:"SCOUT benches",                                    ar:"مقاعد سكاوت",                                              status:"order sent",                date:null,         responsible:"RCC Team",   notes:"Waiting for quotation" },
-  { id:20, area:"Main majles",    task:"SCOUT benches – fabric",                           ar:"مقاعد سكاوت — القماش",                                     status:"Completed",                 date:null,         responsible:"RCC Team",   notes:"Waiting for quotation" },
-  { id:21, area:"Main majles",    task:"L.Z wall light",                                   ar:"إضاءة جدار L.Z",                                           status:"Completed",                 date:"15-5-2026",  responsible:"Paulo",      notes:"Paulo" },
-  { id:22, area:"Main majles",    task:"Old convertible sofa",                             ar:"الكنبة القديمة القابلة للتحويل",                           status:"Completed",                 date:"15-5-2026",  responsible:"RCC Team",   notes:"" },
-  { id:23, area:"Dining Room",    task:"Dining table with brass addition",                 ar:"طاولة الطعام مع إضافة النحاسية",                           status:"In Progress",               date:"15-05-2026", responsible:"Contractor", notes:"" },
-  { id:24, area:"Dining Room",    task:"Buffet",                                           ar:"البوفيه",                                                  status:"In Progress",               date:"30-5-2026",  responsible:"Contractor", notes:"" },
-  { id:25, area:"Dining Room",    task:"Wall artworks – dishes",                           ar:"الأعمال الفنية الجدارية — الأطباق",                        status:"Completed",                 date:"30-5-2026",  responsible:"RCC Team",   notes:"" },
-  { id:26, area:"Dining Room",    task:"Chair upholstery – seat",                          ar:"تنجيد الكرسي — المقعد",                                    status:"In Progress",               date:null,         responsible:"RCC Team",   notes:"UPHOLESTERY" },
-  { id:27, area:"Dining Room",    task:"Chair upholstery – back",                          ar:"تنجيد الكرسي — الظهر",                                     status:"In Progress",               date:null,         responsible:"RCC Team",   notes:"UPHOLESTERY" },
-  { id:28, area:"Dining Room",    task:"Curtains",                                         ar:"الستائر",                                                  status:"In Progress",               date:"15-05-2026", responsible:"Contractor", notes:"Fabric arriving end of month + 15 days install" },
-  { id:31, area:"Dining Room",    task:"Rugs",                                             ar:"سجاجيد",                                                   status:"order done",                date:null,         responsible:"RCC Team",   notes:"Waiting for samples" },
-  { id:29, area:"Dining Room",    task:"Partition",                                        ar:"الفاصل",                                                   status:"In Progress",               date:"15-5-26",    responsible:"Contractor", notes:"" },
-  { id:32, area:"",               task:"Home cleaning",                                    ar:"تنظيف المنزل",                                             status:"Scheduled",                 date:"05-12-2026", responsible:"",           notes:"" },
+  {
+    "id": 1,
+    "area": "Main Entrance",
+    "task": "Palm & shell works + add shells around fireplace",
+    "ar": "أعمال النخيل والأصداف وإضافة أصداف حول المدفأة",
+    "status": "completed",
+    "date": "30-4-2026",
+    "responsible": "Darwin",
+    "notes": "with darwin working on sample"
+  },
+  {
+    "id": 2,
+    "area": "Main Entrance",
+    "task": "Entrance chandelier (painting stage)",
+    "ar": "ثريا المدخل — مرحلة الطلاء",
+    "status": "In Progress",
+    "date": "14-6-2026",
+    "responsible": "",
+    "notes": "shipped"
+  },
+  {
+    "id": 3,
+    "area": "Main Entrance",
+    "task": "Abaya room completed",
+    "ar": "اكتمال غرفة العباية",
+    "status": "completed",
+    "date": null,
+    "responsible": "",
+    "notes": "lighting"
+  },
+  {
+    "id": 4,
+    "area": "Main Entrance",
+    "task": "L-shape sofa upholstery",
+    "ar": "تنجيد الكنبة على شكل حرف L",
+    "status": "completed",
+    "date": "20-5-2026",
+    "responsible": "",
+    "notes": "UPHOLESTERY"
+  },
+  {
+    "id": 5,
+    "area": "Main Entrance",
+    "task": "Floor box cancellation",
+    "ar": "إلغاء صندوق الأرضية",
+    "status": "cancel",
+    "date": null,
+    "responsible": "Owner",
+    "notes": "waiting for the owner decision"
+  },
+  {
+    "id": 6,
+    "area": "Main Entrance",
+    "task": "Bench fabric decision",
+    "ar": "قرار قماش المقعد",
+    "status": "completed",
+    "date": null,
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 7,
+    "area": "Washbasin Area",
+    "task": "Last internal sink delivery",
+    "ar": "تسليم المغسلة الداخلية الأخيرة",
+    "status": "completed",
+    "date": "5-6-2026",
+    "responsible": "Paulo",
+    "notes": "paulo"
+  },
+  {
+    "id": 8,
+    "area": "Washbasin Area",
+    "task": "Mirror (no lighting) by contractor",
+    "ar": "المرآة بدون إضاءة — من قبل المقاول",
+    "status": "completed",
+    "date": "20-5-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 9,
+    "area": "Washbasin Area",
+    "task": "Lower washbasin curtains",
+    "ar": "ستائر المغسلة السفلية",
+    "status": "ready",
+    "date": "13-6-2026",
+    "responsible": "",
+    "notes": "new one added-waiting for fabric"
+  },
+  {
+    "id": 10,
+    "area": "Washbasin Area",
+    "task": "Small black tiles frame",
+    "ar": "إطار البلاط الأسود الصغير",
+    "status": "completed",
+    "date": "5-4-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 11,
+    "area": "Washbasin Area",
+    "task": "Toilet window curtains",
+    "ar": "ستائر نافذة الحمام",
+    "status": "completed",
+    "date": "25-4-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 12,
+    "area": "Washbasin Area",
+    "task": "Table cover frame border",
+    "ar": "حدود إطار غطاء الطاولة",
+    "status": "In Progress",
+    "date": "6-10-2026",
+    "responsible": "",
+    "notes": "waiting for the border -missing in shipping -"
+  },
+  {
+    "id": 13,
+    "area": "Washbasin Area",
+    "task": "Carpet runner",
+    "ar": "سجادة ممر",
+    "status": "In Progress",
+    "date": null,
+    "responsible": "",
+    "notes": "samples approved, start production"
+  },
+  {
+    "id": 14,
+    "area": "Main majles",
+    "task": "Wooden works",
+    "ar": "الأعمال الخشبية",
+    "status": "Completed",
+    "date": null,
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 15,
+    "area": "Main majles",
+    "task": "Curtain",
+    "ar": "الستائر",
+    "status": "In Progress",
+    "date": "15-6-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 16,
+    "area": "Main majles",
+    "task": "LULU LAROTUNE sofa",
+    "ar": "كنبة لولو لاروتون",
+    "status": "ready to ship",
+    "date": "15-6-2026",
+    "responsible": "Paulo",
+    "notes": "paulo"
+  },
+  {
+    "id": 17,
+    "area": "Main majles",
+    "task": "DOOQ sofa",
+    "ar": "كنبة دوك",
+    "status": "Completed",
+    "date": "15-5-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 18,
+    "area": "Main majles",
+    "task": "DUDGEON sofa",
+    "ar": "كنبة دادجون",
+    "status": "ready to ship",
+    "date": "15-6-2026",
+    "responsible": "Paulo",
+    "notes": "paulo"
+  },
+  {
+    "id": 19,
+    "area": "",
+    "task": "Main Sofas",
+    "ar": "الكنب الرئيسية",
+    "status": "ready",
+    "date": "13-6-2026",
+    "responsible": "",
+    "notes": "Refilling the cushions with a new feather"
+  },
+  {
+    "id": 20,
+    "area": "Main majles",
+    "task": "PACIFIC sofa",
+    "ar": "كنبة باسيفيك",
+    "status": "with anas",
+    "date": "15-6-2026",
+    "responsible": "Anas",
+    "notes": ""
+  },
+  {
+    "id": 21,
+    "area": "Main majles",
+    "task": "SCOUT benches",
+    "ar": "مقاعد سكاوت",
+    "status": "with anas",
+    "date": "15-6-2026",
+    "responsible": "Anas",
+    "notes": "samples approved"
+  },
+  {
+    "id": 22,
+    "area": "Main majles",
+    "task": "SCOUT benches – fabric",
+    "ar": "مقاعد سكاوت — القماش",
+    "status": "Completed",
+    "date": null,
+    "responsible": "",
+    "notes": "waiting for qoutation"
+  },
+  {
+    "id": 23,
+    "area": "Main majles",
+    "task": "L.Z wall light",
+    "ar": "إضاءة جدار L.Z",
+    "status": "Completed",
+    "date": "15-5-2026",
+    "responsible": "Paulo",
+    "notes": "paulo"
+  },
+  {
+    "id": 24,
+    "area": "Main majles",
+    "task": "Old convertible sofa",
+    "ar": "الكنبة القديمة القابلة للتحويل",
+    "status": "Completed",
+    "date": "15-5-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 25,
+    "area": "Dining Room",
+    "task": "Dining table with brass addition",
+    "ar": "طاولة الطعام مع إضافة النحاسية",
+    "status": "Completed",
+    "date": "15-5-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 26,
+    "area": "Dining Room",
+    "task": "Buffet",
+    "ar": "البوفيه",
+    "status": "In Progress",
+    "date": "15-6-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 27,
+    "area": "Dining Room",
+    "task": "Wall artworks – dishes",
+    "ar": "الأعمال الفنية الجدارية — الأطباق",
+    "status": "Completed",
+    "date": "15-5-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 28,
+    "area": "Dining Room",
+    "task": "Chair upholstery – seat",
+    "ar": "تنجيد الكرسي — المقعد",
+    "status": "Completed",
+    "date": "15-5-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 29,
+    "area": "Dining Room",
+    "task": "Chair upholstery – back",
+    "ar": "تنجيد الكرسي — الظهر",
+    "status": "Completed",
+    "date": null,
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 30,
+    "area": "Dining Room",
+    "task": "Curtains",
+    "ar": "الستائر",
+    "status": "In Progress",
+    "date": "15-6-2026",
+    "responsible": "",
+    "notes": "Fabric arriving end of month + 15 days install"
+  },
+  {
+    "id": 31,
+    "area": "Dining Room",
+    "task": "Rugs",
+    "ar": "سجاجيد",
+    "status": "order done",
+    "date": null,
+    "responsible": "",
+    "notes": "samples approved"
+  },
+  {
+    "id": 32,
+    "area": "Dining Room",
+    "task": "Partition",
+    "ar": "الفاصل",
+    "status": "Completed",
+    "date": "6-4-2026",
+    "responsible": "",
+    "notes": "ready to fix"
+  },
+  {
+    "id": 33,
+    "area": "",
+    "task": "Home cleaning",
+    "ar": "تنظيف المنزل",
+    "status": "Completed",
+    "date": "5-12-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 34,
+    "area": "",
+    "task": "Mirror shelf",
+    "ar": "رف المرآة",
+    "status": "In Progress",
+    "date": "6-7-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 35,
+    "area": "",
+    "task": "Marble skirting",
+    "ar": "وزرة الرخام",
+    "status": "Completed",
+    "date": "6-7-2026",
+    "responsible": "",
+    "notes": ""
+  },
+  {
+    "id": 36,
+    "area": "",
+    "task": "Tables for Majles",
+    "ar": "طاولات المجلس",
+    "status": "In Progress",
+    "date": "9-1-2026",
+    "responsible": "",
+    "notes": "order sent"
+  },
+  {
+    "id": 37,
+    "area": "",
+    "task": "Cushions",
+    "ar": "الوسائد",
+    "status": "In Progress",
+    "date": "15-6-2026",
+    "responsible": "Anas",
+    "notes": "anas"
+  },
+  {
+    "id": 38,
+    "area": "",
+    "task": "Wooden shelf with mirror",
+    "ar": "رف خشبي مع مرآة",
+    "status": "In Progress",
+    "date": "15-6-2026",
+    "responsible": "Anas",
+    "notes": "anas"
+  },
+  {
+    "id": 39,
+    "area": "",
+    "task": "Abaya closet fabric fix",
+    "ar": "إصلاح قماش خزانة العباية",
+    "status": "In Progress",
+    "date": "15-6-2026",
+    "responsible": "Anas",
+    "notes": "anas"
+  },
+  {
+    "id": 40,
+    "area": "",
+    "task": "Wall art lighting",
+    "ar": "إضاءة اللوحات الجدارية",
+    "status": "In Progress",
+    "date": "8-1-2026",
+    "responsible": "",
+    "notes": "account opened"
+  },
+  {
+    "id": 41,
+    "area": "",
+    "task": "Curtains bands",
+    "ar": "أربطة الستائر",
+    "status": "In Progress",
+    "date": "6-10-2026",
+    "responsible": "Rawnaq",
+    "notes": "rawnaq"
+  },
+  {
+    "id": 42,
+    "area": "",
+    "task": "Wall art lighting",
+    "ar": "إضاءة اللوحات الجدارية",
+    "status": "In Progress",
+    "date": "6-10-2026",
+    "responsible": "",
+    "notes": "samples from local market"
+  }
 ];
 
 const SECTIONS = ["All","Main Entrance","Washbasin Area","Main majles","Dining Room"];
@@ -381,6 +789,7 @@ function applyChanges() {
   }
   pendingDiff = null;
   closeDiffModal();
+  initTimeline();
   render();
 }
 
@@ -400,6 +809,7 @@ function saveAndApply() {
   }
   pendingDiff = null;
   closeDiffModal();
+  initTimeline();
   render();
 
   // 2. Capture current page source (outerHTML does NOT include doctype)
@@ -584,6 +994,8 @@ function render() {
   const withDate = [...filtered].filter(t => t.date).sort((a,b) => toOff(a.date) - toOff(b.date));
   const noDate   = filtered.filter(t => !t.date);
   const LW       = 310;
+  // Keep months legible: label column + ~10px per day, floored at the original 880px.
+  const ganttMinW = Math.max(880, LW + DAYS * 10);
 
   // ── Section filter tabs (gold) ───────────────────────────────────────────
   const tabsHTML = SECTIONS.map(s => {
@@ -624,7 +1036,7 @@ function render() {
   const weekTicks = WEEKS.filter(w => w < DAYS).map(w =>
     `<div style="position:absolute;left:${w/DAYS*100}%;bottom:0;height:6px;width:1px;background:#ddd5c8"></div>`
   ).join("");
-  const todayPct = TODAY_OFF / DAYS * 100;
+  const todayPct = todayOff() / DAYS * 100;
 
   // ── Gantt row builder ────────────────────────────────────────────────────
   function buildRow(task, i, isNoDate) {
@@ -798,7 +1210,7 @@ function render() {
 
     <!-- GANTT CHART -->
     <div style="overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 430px)">
-      <div style="min-width:880px">
+      <div style="min-width:${ganttMinW}px">
 
         <!-- Sticky column header -->
         <div style="display:flex;position:sticky;top:0;z-index:10;background:#f0ebe2;border-bottom:2px solid #ddd5c8;height:46px;box-shadow:0 2px 6px rgba(0,0,0,0.06)">
@@ -845,6 +1257,7 @@ function render() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────
+initTimeline();
 render();
 </script>
 </body>
